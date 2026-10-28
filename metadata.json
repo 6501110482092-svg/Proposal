@@ -1,0 +1,6 @@
+{
+  "name": "Clinic Quotation Studio - ระบบสร้างใบเสนอราคาตรวจสุขภาพเคลื่อนที่",
+  "description": "ระบบสร้าง จัดการ และพิมพ์ใบเสนอราคาโครงการตรวจสุขภาพเคลื่อนที่สำหรับสถานพยาบาลและคลินิก พร้อมระบบคำนวณราคาตามช่วงจำนวนคนและหัวกระดาษหลายบริษัท",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
