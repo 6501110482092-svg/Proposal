@@ -76,3 +76,24 @@ export function parseThaiDate(text: string): { day: number; monthIndex: number; 
     year: now.getFullYear() + 543,
   };
 }
+
+/**
+ * Formats an ISO date string into a friendly Thai date & time format
+ * e.g., "28 ต.ค. 2569 15:48 น."
+ */
+export function formatThaiDateTime(isoString?: string): string {
+  if (!isoString) return '-';
+  try {
+    const d = new Date(isoString);
+    if (isNaN(d.getTime())) return isoString;
+    const day = d.getDate();
+    const month = THAI_MONTHS_SHORT[d.getMonth()];
+    const beYear = d.getFullYear() + 543;
+    const hours = d.getHours().toString().padStart(2, '0');
+    const minutes = d.getMinutes().toString().padStart(2, '0');
+    return `${day} ${month} ${beYear} เวลา ${hours}:${minutes} น.`;
+  } catch (e) {
+    return isoString;
+  }
+}
+

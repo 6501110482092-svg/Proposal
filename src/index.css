@@ -8,78 +8,6 @@
   }
 }
 
-/* Custom print and A4 document styling with exactly 1.5 cm (15mm) side margins */
-@page {
-  size: A4 portrait;
-  margin: 15mm 15mm 15mm 15mm;
-}
-
-@media print {
-  html, body {
-    background: #ffffff !important;
-    color: #000000 !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    -webkit-print-color-adjust: exact !important;
-    print-color-adjust: exact !important;
-  }
-
-  .no-print {
-    display: none !important;
-  }
-
-  .print-only {
-    display: block !important;
-  }
-
-  #printable-document {
-    width: 100% !important;
-    max-width: 100% !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-    background: transparent !important;
-  }
-
-  .a4-page {
-    page-break-after: always !important;
-    break-after: page !important;
-    min-height: 100vh !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    box-shadow: none !important;
-    border: none !important;
-  }
-
-  .a4-page:last-child {
-    page-break-after: avoid !important;
-    break-after: avoid !important;
-  }
-
-  .avoid-break {
-    page-break-inside: avoid !important;
-    break-inside: avoid !important;
-  }
-
-  table {
-    page-break-inside: auto;
-  }
-
-  tr {
-    page-break-inside: avoid;
-    page-break-after: auto;
-  }
-
-  thead {
-    display: table-header-group;
-  }
-
-  tfoot {
-    display: table-footer-group;
-  }
-}
-
 /* Realistic A4 sheet in screen mode with exactly 1.5cm (15mm) side padding */
 .a4-sheet {
   width: 210mm;
@@ -117,4 +45,146 @@
   border-bottom: 1.5px dotted #1e293b;
   display: inline-block;
   min-width: 160px;
+}
+
+/* ==========================================================================
+   PRINT ENGINE OPTIMIZATION - STRICT PURE WHITE, ZERO MARGIN BLEED, NO BLANK PAGES
+   ========================================================================== */
+@page {
+  size: A4 portrait;
+  margin: 12mm 15mm 12mm 15mm; /* 1.5 cm (15mm) side margins as requested */
+}
+
+@media print {
+  /* 1. Force entire document, canvas and all parent wrappers to 100% pure white */
+  html,
+  body,
+  #root,
+  #root > div,
+  .min-h-screen,
+  main,
+  div {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+  }
+
+  html,
+  body {
+    width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    color: #000000 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 2. Reset outer application wrappers */
+  #root,
+  #root > div,
+  .min-h-screen,
+  main {
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    min-height: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+  }
+
+  /* 3. Hide all interactive UI, toolbars, buttons, alerts, headers */
+  .no-print,
+  nav,
+  header,
+  footer,
+  aside,
+  button,
+  input,
+  textarea,
+  select,
+  .modal-backdrop,
+  [role="dialog"] {
+    display: none !important;
+  }
+
+  /* 4. Target the printable container */
+  #printable-area,
+  #printable-document {
+    width: 100% !important;
+    max-width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    box-shadow: none !important;
+    border: none !important;
+    display: block !important;
+  }
+
+  /* 5. A4 Sheet in print mode:
+        - Remove screen box-shadow, margin and borders
+        - Remove screen min-height (297mm) so it NEVER causes blank overflow
+        - Remove padding because @page already supplies 15mm margins */
+  .a4-sheet {
+    width: 100% !important;
+    max-width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    overflow: visible !important;
+  }
+
+  /* Individual A4 document pages */
+  .a4-page {
+    width: 100% !important;
+    min-height: 0 !important;
+    height: auto !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    background: #ffffff !important;
+    page-break-after: always !important;
+    break-after: page !important;
+    display: block !important;
+  }
+
+  /* The LAST page must NEVER break to an extra blank page */
+  .a4-page:last-child {
+    page-break-after: avoid !important;
+    break-after: avoid !important;
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+  }
+
+  /* Prevent bad breaks across table rows, total rows, and signature blocks */
+  .avoid-break {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  table {
+    page-break-inside: auto;
+    width: 100% !important;
+  }
+
+  tr {
+    page-break-inside: avoid !important;
+    break-inside: avoid !important;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
 }

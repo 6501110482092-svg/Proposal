@@ -17,6 +17,7 @@ import {
   INITIAL_PROPOSALS,
 } from './data/defaultData';
 import { HeaderNav } from './components/HeaderNav';
+import { DashboardView } from './components/DashboardView';
 import { ProposalEditor } from './components/ProposalEditor';
 import { PrintableDocument } from './components/PrintableDocument';
 import { ClinicProfilesModal, ensureClinicDefaults } from './components/ClinicProfilesModal';
@@ -25,7 +26,16 @@ import { CloneProposalModal } from './components/CloneProposalModal';
 import { ProposalHistoryModal } from './components/ProposalHistoryModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getTodayThaiDate } from './utils/thaiDate';
-import { Printer, Eye, Edit3, History, Copy, Plus } from 'lucide-react';
+import {
+  Printer,
+  Eye,
+  Edit3,
+  History,
+  Copy,
+  Plus,
+  ArrowLeft,
+  LayoutDashboard,
+} from 'lucide-react';
 
 const STORAGE_KEY_PROPOSALS = 'clinic_studio_proposals_v1';
 const STORAGE_KEY_CLINICS = 'clinic_studio_clinics_v1';
@@ -110,8 +120,8 @@ export default function App() {
     return INITIAL_PROPOSALS[0]?.id || '';
   });
 
-  // View mode
-  const [viewMode, setViewMode] = useState<'split' | 'edit' | 'preview'>('split');
+  // View mode defaults to 'dashboard' so users immediately see their sales overview and proposal history!
+  const [viewMode, setViewMode] = useState<'dashboard' | 'split' | 'edit' | 'preview'>('dashboard');
 
   // Modals state
   const [isClinicModalOpen, setIsClinicModalOpen] = useState(false);
@@ -232,6 +242,8 @@ export default function App() {
 
     setProposals(prev => [newDoc, ...prev]);
     setActiveProposalId(newId);
+    // Switch to edit mode when creating a new proposal
+    setViewMode('split');
   };
 
   // Trigger clone modal for a specific proposal
@@ -244,6 +256,7 @@ export default function App() {
   const handleCloneSuccess = (cloned: ProposalDocument) => {
     setProposals(prev => [cloned, ...prev]);
     setActiveProposalId(cloned.id);
+    setViewMode('split');
   };
 
   // Export JSON backup
@@ -310,84 +323,138 @@ export default function App() {
         />
 
         {/* Main Content Area */}
-        <main className="flex-1 max-w-[1920px] w-full mx-auto px-2 sm:px-4 py-4">
-          {/* If in Split View: side-by-side on desktop */}
-          {viewMode === 'split' && (
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
-              {/* Left: Editor Panel */}
-              <div className="lg:col-span-6 xl:col-span-6 no-print overflow-y-auto max-h-[calc(100vh-80px)] pr-1">
-                <div className="mb-3 flex items-center justify-between">
-                  <div>
-                    <h2 className="font-bold text-slate-800 text-base">
-                      แผงแก้ไขใบเสนอราคา (Quotation Form)
-                    </h2>
-                    <p className="text-xs text-slate-500">
-                      แก้ไขข้อมูล หัวกระดาษ วันที่ ตาราง และรายการตรวจ
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setIsHistoryModalOpen(true)}
-                      className="text-xs bg-indigo-50 text-indigo-800 hover:bg-indigo-100 font-semibold px-2.5 py-1.5 rounded-lg border border-indigo-200 transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <History className="w-3.5 h-3.5" /> ประวัติเสนอขาย ({proposals.length})
-                    </button>
-                    <button
-                      onClick={() => handleTriggerClone(activeProposal)}
-                      className="text-xs bg-sky-50 text-sky-800 hover:bg-sky-100 font-semibold px-2.5 py-1.5 rounded-lg border border-sky-200 transition flex items-center gap-1 cursor-pointer"
-                    >
-                      <Copy className="w-3.5 h-3.5" /> ทำสำเนา/ปีใหม่
-                    </button>
-                  </div>
-                </div>
+        <main className="flex-1 max-w-[1920px] w-full mx-auto px-3 sm:px-6 py-5">
+          {/* 1. Main Dashboard View (Default Home Page) */}
+          {viewMode === 'dashboard' && (
+            <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแสดงผลแดชบอร์ด">
+              <DashboardView
+                proposals={proposals}
+                clinics={clinics}
+                activeProposalId={activeProposalId}
+                onSelectProposal={setActiveProposalId}
+                onOpenEditor={id => {
+                  setActiveProposalId(id);
+                  setViewMode('split');
+                }}
+                onOpenPreview={id => {
+                  setActiveProposalId(id);
+                  setViewMode('preview');
+                }}
+                onCreateNewProposal={handleCreateNewProposal}
+                onOpenCloneModal={p => handleTriggerClone(p)}
+                onDeleteProposal={handleDeleteProposal}
+                onUpdateStatus={handleUpdateStatus}
+                onOpenClinicProfiles={() => setIsClinicModalOpen(true)}
+                onOpenMasterCatalog={() => setIsCatalogModalOpen(true)}
+                onExportData={handleExportData}
+                onImportData={handleImportData}
+              />
+            </ErrorBoundary>
+          )}
 
-                {activeProposal && (
-                  <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการโหลดแบบฟอร์มแก้ไข">
-                    <ProposalEditor
-                      proposal={activeProposal}
-                      onChange={handleUpdateProposal}
-                      clinics={clinics}
-                      masterTests={masterTests}
-                      tiers={tiers}
-                      onOpenClinicProfiles={() => setIsClinicModalOpen(true)}
-                      onOpenMasterCatalog={() => setIsCatalogModalOpen(true)}
-                    />
-                  </ErrorBoundary>
-                )}
+          {/* 2. Split View: Editor + Realistic A4 Preview side-by-side */}
+          {viewMode === 'split' && (
+            <div>
+              {/* Return to Dashboard bar */}
+              <div className="mb-4 flex items-center justify-between no-print">
+                <button
+                  onClick={() => setViewMode('dashboard')}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-slate-50 border border-slate-300 px-3.5 py-2 rounded-xl transition shadow-2xs cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4 text-sky-600" />
+                  <span>กลับหน้าแดชบอร์ดภาพรวม & ประวัติ</span>
+                </button>
+                <div className="text-xs text-slate-500 font-medium">
+                  กำลังแก้ไข: <strong className="text-slate-800">{activeProposal.title || activeProposal.documentNo}</strong>
+                </div>
               </div>
 
-              {/* Right: Realistic A4 Preview */}
-              <div className="lg:col-span-6 xl:col-span-6 bg-slate-200/80 rounded-2xl p-4 overflow-y-auto max-h-[calc(100vh-80px)] border border-slate-300/80 shadow-inner flex flex-col items-center">
-                <div className="w-full max-w-[210mm] mb-3 flex items-center justify-between text-xs text-slate-600 no-print">
-                  <span className="font-semibold flex items-center gap-1.5">
-                    <Eye className="w-4 h-4 text-sky-700" />
-                    ตัวอย่างเอกสาร A4 เสมือนจริง (เหมือนพิมพ์จริง 100%)
-                  </span>
-                  <button
-                    onClick={() => window.print()}
-                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1 rounded-lg flex items-center gap-1 shadow-xs transition cursor-pointer"
-                  >
-                    <Printer className="w-3.5 h-3.5" /> พิมพ์เอกสาร / บันทึก PDF
-                  </button>
-                </div>
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-start print:block print:w-full">
+                {/* Left: Editor Panel */}
+                <div className="lg:col-span-6 xl:col-span-6 no-print overflow-y-auto max-h-[calc(100vh-120px)] pr-1">
+                  <div className="mb-3 flex items-center justify-between">
+                    <div>
+                      <h2 className="font-bold text-slate-800 text-base">
+                        แผงแก้ไขใบเสนอราคา (Quotation Form)
+                      </h2>
+                      <p className="text-xs text-slate-500">
+                        แก้ไขข้อมูล หัวกระดาษ วันที่ ตาราง และรายการตรวจ
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleTriggerClone(activeProposal)}
+                        className="text-xs bg-sky-50 text-sky-800 hover:bg-sky-100 font-semibold px-2.5 py-1.5 rounded-lg border border-sky-200 transition flex items-center gap-1 cursor-pointer"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> ทำสำเนา/ปีใหม่
+                      </button>
+                    </div>
+                  </div>
 
-                {activeProposal && activeClinic && (
-                  <div className="w-full flex justify-center">
-                    <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแสดงเอกสาร A4">
-                      <PrintableDocument
+                  {activeProposal && (
+                    <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการโหลดแบบฟอร์มแก้ไข">
+                      <ProposalEditor
                         proposal={activeProposal}
-                        clinic={activeClinic}
+                        onChange={handleUpdateProposal}
+                        clinics={clinics}
+                        masterTests={masterTests}
+                        tiers={tiers}
+                        onOpenClinicProfiles={() => setIsClinicModalOpen(true)}
+                        onOpenMasterCatalog={() => setIsCatalogModalOpen(true)}
                       />
                     </ErrorBoundary>
+                  )}
+                </div>
+
+                {/* Right: Realistic A4 Preview */}
+                <div className="lg:col-span-6 xl:col-span-6 bg-slate-200/80 rounded-2xl p-4 overflow-y-auto max-h-[calc(100vh-120px)] border border-slate-300/80 shadow-inner flex flex-col items-center print:bg-white print:border-none print:shadow-none print:p-0 print:max-h-none print:overflow-visible print:w-full print:block">
+                  <div className="w-full max-w-[210mm] mb-3 flex items-center justify-between text-xs text-slate-600 no-print">
+                    <span className="font-semibold flex items-center gap-1.5">
+                      <Eye className="w-4 h-4 text-sky-700" />
+                      ตัวอย่างเอกสาร A4 เสมือนจริง (เหมือนพิมพ์จริง 100%)
+                    </span>
+                    <button
+                      onClick={() => window.print()}
+                      className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-3 py-1 rounded-lg flex items-center gap-1 shadow-xs transition cursor-pointer"
+                    >
+                      <Printer className="w-3.5 h-3.5" /> พิมพ์เอกสาร / บันทึก PDF
+                    </button>
                   </div>
-                )}
+
+                  {activeProposal && activeClinic && (
+                    <div className="w-full flex justify-center print:block print:w-full">
+                      <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแสดงเอกสาร A4">
+                        <PrintableDocument
+                          proposal={activeProposal}
+                          clinic={activeClinic}
+                        />
+                      </ErrorBoundary>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
 
-          {/* If in Edit-Only View */}
+          {/* 3. Edit-Only View */}
           {viewMode === 'edit' && (
             <div className="max-w-4xl mx-auto no-print">
+              <div className="mb-4 flex items-center justify-between">
+                <button
+                  onClick={() => setViewMode('dashboard')}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-slate-50 border border-slate-300 px-3.5 py-2 rounded-xl transition shadow-2xs cursor-pointer"
+                >
+                  <ArrowLeft className="w-4 h-4 text-sky-600" />
+                  <span>กลับหน้าแดชบอร์ดภาพรวม & ประวัติ</span>
+                </button>
+                <button
+                  onClick={() => setViewMode('preview')}
+                  className="bg-sky-600 hover:bg-sky-700 text-white font-semibold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition shadow-2xs cursor-pointer"
+                >
+                  <Eye className="w-4 h-4" /> ดูตัวอย่างพิมพ์ A4
+                </button>
+              </div>
+
               {activeProposal && (
                 <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการโหลดแบบฟอร์มแก้ไข">
                   <ProposalEditor
@@ -404,19 +471,32 @@ export default function App() {
             </div>
           )}
 
-          {/* If in Preview-Only View */}
+          {/* 4. Preview-Only View */}
           {viewMode === 'preview' && (
-            <div className="w-full flex flex-col items-center py-2">
+            <div className="w-full flex flex-col items-center py-2 print:py-0 print:block print:w-full">
               <div className="w-full max-w-[210mm] mb-4 flex items-center justify-between no-print">
-                <span className="text-sm font-semibold text-slate-700">
-                  มุมมองหน้าเอกสาร A4 เตรียมพิมพ์
-                </span>
                 <button
-                  onClick={() => window.print()}
-                  className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
+                  onClick={() => setViewMode('dashboard')}
+                  className="inline-flex items-center gap-2 text-xs font-bold text-slate-700 hover:text-sky-700 bg-white hover:bg-slate-50 border border-slate-300 px-3.5 py-2 rounded-xl transition shadow-2xs cursor-pointer"
                 >
-                  <Printer className="w-4 h-4" /> พิมพ์หรือบันทึกเป็น PDF
+                  <ArrowLeft className="w-4 h-4 text-sky-600" />
+                  <span>กลับหน้าแดชบอร์ดภาพรวม & ประวัติ</span>
                 </button>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setViewMode('split')}
+                    className="bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 font-semibold text-xs px-3.5 py-2 rounded-xl flex items-center gap-1.5 transition cursor-pointer"
+                  >
+                    <Edit3 className="w-4 h-4 text-sky-600" /> แก้ไขเอกสารนี้
+                  </button>
+                  <button
+                    onClick={() => window.print()}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-4 py-2 rounded-xl flex items-center gap-2 shadow-sm transition cursor-pointer"
+                  >
+                    <Printer className="w-4 h-4" /> พิมพ์หรือบันทึกเป็น PDF
+                  </button>
+                </div>
               </div>
 
               {activeProposal && activeClinic && (
@@ -431,7 +511,7 @@ export default function App() {
           )}
         </main>
 
-        {/* Modals wrapped in ErrorBoundary so a modal issue can never crash the parent app */}
+        {/* Modals wrapped in ErrorBoundary */}
         {/* 1. Clinic Profiles Manager */}
         <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการเปิดสมุดบริษัทคลินิก">
           <ClinicProfilesModal

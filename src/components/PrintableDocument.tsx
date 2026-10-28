@@ -326,11 +326,23 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
     );
   };
 
+  // Check if final page has any content before rendering it
+  const hasFinalPageContent = Boolean(
+    (proposal.remarks && proposal.remarks.length > 0) ||
+    (proposal.serviceConditions && proposal.serviceConditions.length > 0) ||
+    (proposal.closingParagraph && proposal.closingParagraph.trim()) ||
+    (proposal.signer?.name && proposal.signer.name.trim()) ||
+    proposal.clientConfirmation?.show ||
+    (proposal.coordinators && proposal.coordinators.length > 0)
+  );
+
   const renderPageFinal = () => {
+    if (!hasFinalPageContent) return null;
+
     return (
       <div className="a4-sheet a4-page flex flex-col justify-between">
         <div>
-          {/* Header on Page 3 */}
+          {/* Header on Final Page */}
           <DocumentHeader clinic={clinic} compact />
 
           <div style={bodyStyle}>
@@ -374,7 +386,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             )}
 
             {/* Signoff (ขอแสดงความนับถือ) */}
-            <div className="w-full flex justify-end mb-8">
+            <div className="w-full flex justify-end mb-8 avoid-break">
               <div className="text-center min-w-[220px] text-[13.5px]">
                 <div className="mb-10 font-normal">ขอแสดงความนับถือ</div>
                 <div className="font-normal mb-0.5">({proposal.signer?.name || '...........................................'})</div>
@@ -383,7 +395,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             </div>
 
             {/* Footer Grid: Client Confirmation (Left) & Coordinator Box (Right) */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch pt-2 border-t border-slate-300">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 items-stretch pt-2 border-t border-slate-300 avoid-break">
               {/* Left Box: Client Confirmation */}
               {proposal.clientConfirmation?.show && (
                 <div className="flex flex-col justify-end text-[13px] pb-2">
@@ -447,7 +459,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
       {proposal.programs.length > 1 && renderPage2()}
 
       {/* Page 3 / Final Page (Terms, Signoff, Coordinators) */}
-      {renderPageFinal()}
+      {hasFinalPageContent && renderPageFinal()}
     </div>
   );
 };
