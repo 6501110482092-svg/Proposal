@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ClinicProfile } from '../types';
 import { DEFAULT_CLINICS } from '../data/defaultData';
 import { ClinicLogo } from './ClinicLogo';
+import { compressLogoImage } from '../utils/persistentStorage';
 import {
   Building2,
   Plus,
@@ -30,7 +31,9 @@ export const ensureClinicDefaults = (c: Partial<ClinicProfile> | undefined | nul
   return {
     id: c.id || `clinic-${Date.now()}`,
     name: c.name || base.name,
+    englishName: c.englishName !== undefined ? c.englishName : (base.englishName || ''),
     shortName: c.shortName || base.shortName,
+    docPrefix: c.docPrefix || base.docPrefix || 'BK',
     logoUrl: c.logoUrl || '',
     taxId: c.taxId || '',
     licenseNo: c.licenseNo || '',
@@ -120,7 +123,9 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
     const newClinic: ClinicProfile = {
       id: newId,
       name: 'คลินิกเวชกรรมและห้องปฏิบัติการใหม่',
+      englishName: 'NEW CLINIC & MEDICAL LAB',
       shortName: 'คลินิกใหม่',
+      docPrefix: 'NC',
       logoUrl: '',
       taxId: '0105560000000',
       licenseNo: '10107000999',
@@ -195,29 +200,24 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
     onClose();
   };
 
-  // Image upload handler with safety and no window.alert
-  const handleLogoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Image upload handler with instant compression to prevent quota exceed
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    if (file.size > 3 * 1024 * 1024) {
-      setUploadError('ขนาดไฟล์รูปภาพไม่ควรเกิน 3 MB');
-      return;
-    }
-
     setUploadError(null);
-    const reader = new FileReader();
-    reader.onload = event => {
-      const base64 = event.target?.result as string;
-      if (base64) {
-        setEditingClinic({
-          ...editingClinic,
-          logoUrl: base64,
-        });
-        setHasChanges(true);
-      }
-    };
-    reader.readAsDataURL(file);
+    try {
+      // Compress image into lightweight Base64 (typically ~20-35KB instead of 3MB)
+      const compressedDataUrl = await compressLogoImage(file, 380, 380, 0.88);
+      setEditingClinic(prev => ({
+        ...prev,
+        logoUrl: compressedDataUrl,
+      }));
+      setHasChanges(true);
+    } catch (err) {
+      console.error('Image compression error:', err);
+      setUploadError('ไม่สามารถประมวลผลไฟล์ภาพได้ กรุณาใช้ไฟล์ JPG, PNG หรือ WebP');
+    }
     e.target.value = '';
   };
 
@@ -417,7 +417,7 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="md:col-span-2">
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ชื่อเต็มสถานพยาบาล / คลินิก (แสดงบนหัวเอกสาร) *
+                  ชื่อเต็มสถานพยาบาล / คลินิก (ภาษาไทย เด่นชัดบนหัวเอกสาร) *
                 </label>
                 <input
                   type="text"
@@ -426,13 +426,52 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
                     setEditingClinic({ ...editingClinic, name: e.target.value });
                     setHasChanges(true);
                   }}
+                  placeholder="เช่น ศูนย์ห้องปฏิบัติการทางการแพทย์ บีเคแลบ นครปฐม"
                   className="w-full text-sm font-semibold border border-slate-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-sky-500 focus:border-sky-500 outline-hidden"
                 />
               </div>
 
+              <div className="md:col-span-2">
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  ชื่อภาษาอังกฤษ / บรรทัดที่สอง (English Name - ใส่ก็ได้ไม่ใส่ก็ได้)
+                </label>
+                <input
+                  type="text"
+                  value={editingClinic.englishName || ''}
+                  onChange={e => {
+                    setEditingClinic({ ...editingClinic, englishName: e.target.value });
+                    setHasChanges(true);
+                  }}
+                  placeholder="เช่น BK LAB MEDICAL LABORATORY CENTER"
+                  className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-hidden text-slate-700"
+                />
+                <span className="text-[11px] text-slate-400 mt-0.5 block">
+                  จะแสดงเป็นตัวอักษรขนาดเล็กลง สีเดียวกับรายละเอียด ใต้ชื่อภาษาไทยในหัวกระดาษ
+                </span>
+              </div>
+
               <div>
                 <label className="block text-xs font-bold text-slate-700 mb-1">
-                  ชื่อย่อ (สำหรับเรียกในระบบ)
+                  คำย่อรันเลขที่เอกสาร (Doc Prefix) *
+                </label>
+                <input
+                  type="text"
+                  value={editingClinic.docPrefix || ''}
+                  onChange={e => {
+                    setEditingClinic({ ...editingClinic, docPrefix: e.target.value.toUpperCase() });
+                    setHasChanges(true);
+                  }}
+                  placeholder="เช่น BK, NN, MC"
+                  className="w-full text-sm font-bold font-mono border border-slate-300 rounded-lg px-3 py-2 outline-hidden uppercase bg-sky-50/30"
+                />
+                <span className="text-[11px] text-slate-500 mt-0.5 block">
+                  ใช้สร้างเลขที่เอกสาร เช่น <strong className="text-sky-700">{editingClinic.docPrefix || 'BK'}-QT-2569-001</strong> รันแยกของใครของมัน
+                </span>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-1">
+                  ชื่อย่อ (สำหรับเลือกในระบบ)
                 </label>
                 <input
                   type="text"
@@ -441,6 +480,7 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
                     setEditingClinic({ ...editingClinic, shortName: e.target.value });
                     setHasChanges(true);
                   }}
+                  placeholder="เช่น BK Lab นครปฐม"
                   className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-hidden"
                 />
               </div>

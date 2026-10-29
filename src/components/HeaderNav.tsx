@@ -16,6 +16,7 @@ import {
   History,
   LayoutDashboard,
   ArrowLeft,
+  CheckCircle2,
 } from 'lucide-react';
 
 interface HeaderNavProps {
@@ -31,6 +32,7 @@ interface HeaderNavProps {
   onChangeViewMode: (mode: 'dashboard' | 'split' | 'edit' | 'preview') => void;
   onExportData: () => void;
   onImportData: (jsonData: string) => void;
+  saveStatus?: 'saved' | 'saving';
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -46,6 +48,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onChangeViewMode,
   onExportData,
   onImportData,
+  saveStatus = 'saved',
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -85,8 +88,9 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             <div>
               <h1 className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
                 <span>Clinic Quotation Studio</span>
-                <span className="text-[10px] bg-sky-500/30 text-sky-300 font-medium px-1.5 py-0.2 rounded border border-sky-400/30">
-                  ระบบเสนอขายคลินิก
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] bg-emerald-500/20 text-emerald-300 font-medium px-2 py-0.5 rounded-full border border-emerald-500/30">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  {saveStatus === 'saving' ? 'กำลังบันทึก...' : 'บันทึกในเครื่องอัตโนมัติแล้ว'}
                 </span>
               </h1>
               <p className="text-[11px] text-slate-400">

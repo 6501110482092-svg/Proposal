@@ -177,11 +177,19 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                     className="py-1 px-2 text-left"
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
-                    <span className="font-normal">{item.name}</span>
+                    <div
+                      className="font-normal leading-snug"
+                      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    >
+                      {renderFormattedThaiText(item.name, resolvedBoldColor)}
+                    </div>
                     {item.note && (
-                      <span className="block text-[11px] opacity-80 mt-0.5">
-                        {item.note}
-                      </span>
+                      <div
+                        className="text-[11px] opacity-80 mt-0.5"
+                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                      >
+                        {renderFormattedThaiText(item.note, resolvedBoldColor)}
+                      </div>
                     )}
                   </td>
                   <td
@@ -261,19 +269,17 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
     );
   };
 
-  // Page 1: Header, Date (middle of right half), Subject, Attention, Intro, Program 1
+  // Page 1: Header (with Quotation, Doc No, Date in top right), Subject, Attention, Intro, Program 1
   const renderPage1 = () => (
     <div className="a4-sheet a4-page flex flex-col justify-between">
       <div>
-        {/* Header (Always black & formal as requested) */}
-        <DocumentHeader clinic={clinic} />
-
-        {/* Date Row: Placed in the middle of the right half of the page */}
-        <div className="w-full grid grid-cols-12 mb-5 text-[14px] font-normal tracking-wide" style={bodyStyle}>
-          <div className="col-start-7 col-span-5 text-center">
-            {proposal.dateText}
-          </div>
-        </div>
+        {/* Header (with logo, clinic details on left, and ใบเสนอราคา / เลขที่ / วันที่ on right) */}
+        <DocumentHeader
+          clinic={clinic}
+          documentNo={proposal.documentNo}
+          dateText={proposal.dateText}
+          showDocMeta={true}
+        />
 
         {/* Body content with selected text color */}
         <div style={bodyStyle}>
@@ -282,7 +288,12 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             <span className="font-bold whitespace-nowrap min-w-[50px]" style={{ color: resolvedBoldColor }}>
               เรื่อง
             </span>
-            <span className="font-normal">{proposal.subject}</span>
+            <div
+              className="font-normal flex-1"
+              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            >
+              {renderFormattedThaiText(proposal.subject, resolvedBoldColor)}
+            </div>
           </div>
 
           {/* Attention (เรียน) */}
@@ -290,12 +301,20 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             <span className="font-bold whitespace-nowrap min-w-[50px]" style={{ color: resolvedBoldColor }}>
               เรียน
             </span>
-            <span className="font-normal">{renderFormattedThaiText(proposal.attention, resolvedBoldColor)}</span>
+            <div
+              className="font-normal flex-1"
+              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            >
+              {renderFormattedThaiText(proposal.attention, resolvedBoldColor)}
+            </div>
           </div>
 
           {/* Intro Paragraph */}
           {proposal.introParagraph && (
-            <div className="mb-5 text-[13.5px] leading-relaxed text-justify whitespace-pre-line font-normal indent-10">
+            <div
+              className="mb-5 text-[13.5px] leading-relaxed font-normal"
+              style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+            >
               {renderFormattedThaiText(proposal.introParagraph, resolvedBoldColor)}
             </div>
           )}
@@ -315,7 +334,12 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
       <div className="a4-sheet a4-page flex flex-col justify-between">
         <div>
           {/* Header on Page 2 */}
-          <DocumentHeader clinic={clinic} compact />
+          <DocumentHeader
+            clinic={clinic}
+            documentNo={proposal.documentNo}
+            compact
+            showDocMeta={false}
+          />
 
           {/* Programs for Page 2 */}
           <div style={bodyStyle}>
@@ -343,7 +367,12 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
       <div className="a4-sheet a4-page flex flex-col justify-between">
         <div>
           {/* Header on Final Page */}
-          <DocumentHeader clinic={clinic} compact />
+          <DocumentHeader
+            clinic={clinic}
+            documentNo={proposal.documentNo}
+            compact
+            showDocMeta={false}
+          />
 
           <div style={bodyStyle}>
             {/* Remarks Section (หมายเหตุ) */}
@@ -354,7 +383,11 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                 </h4>
                 <ul className="list-disc pl-6 space-y-1">
                   {proposal.remarks.map((rem, idx) => (
-                    <li key={idx} className="leading-relaxed">
+                    <li
+                      key={idx}
+                      className="leading-relaxed"
+                      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    >
                       {renderFormattedThaiText(rem, resolvedBoldColor)}
                     </li>
                   ))}
@@ -370,7 +403,11 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                 </h4>
                 <ol className="list-decimal pl-6 space-y-1.5">
                   {proposal.serviceConditions.map((cond, idx) => (
-                    <li key={idx} className="leading-relaxed">
+                    <li
+                      key={idx}
+                      className="leading-relaxed"
+                      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                    >
                       {renderFormattedThaiText(cond, resolvedBoldColor)}
                     </li>
                   ))}
@@ -380,7 +417,10 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
             {/* Closing Paragraph (จึงเรียนมาเพื่อโปรดพิจารณา...) */}
             {proposal.closingParagraph && (
-              <div className="mb-8 text-[13.5px] leading-relaxed text-justify indent-10">
+              <div
+                className="mb-8 text-[13.5px] leading-relaxed"
+                style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+              >
                 {renderFormattedThaiText(proposal.closingParagraph, resolvedBoldColor)}
               </div>
             )}

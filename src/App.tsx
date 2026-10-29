@@ -26,6 +26,8 @@ import { CloneProposalModal } from './components/CloneProposalModal';
 import { ProposalHistoryModal } from './components/ProposalHistoryModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getTodayThaiDate } from './utils/thaiDate';
+import { generateCompanyDocNumber } from './utils/docNumber';
+import { savePersistentItem, loadPersistentItem } from './utils/persistentStorage';
 import {
   Printer,
   Eye,
@@ -129,37 +131,80 @@ export default function App() {
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [cloneSourceProposal, setCloneSourceProposal] = useState<ProposalDocument | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
 
-  // Sync to localStorage
+  // Hydrate from IndexedDB on initial mount if available
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_PROPOSALS, JSON.stringify(proposals));
-    } catch (e) {}
+    let mounted = true;
+    async function hydrateStorage() {
+      try {
+        const savedProps = await loadPersistentItem<ProposalDocument[] | null>(STORAGE_KEY_PROPOSALS, null);
+        if (mounted && Array.isArray(savedProps) && savedProps.length > 0) {
+          setProposals(savedProps.filter(Boolean));
+        }
+        const savedClinics = await loadPersistentItem<ClinicProfile[] | null>(STORAGE_KEY_CLINICS, null);
+        if (mounted && Array.isArray(savedClinics) && savedClinics.length > 0) {
+          setClinics(savedClinics.filter(Boolean).map(ensureClinicDefaults));
+        }
+        const savedTests = await loadPersistentItem<MasterTest[] | null>(STORAGE_KEY_TESTS, null);
+        if (mounted && Array.isArray(savedTests) && savedTests.length > 0) {
+          setMasterTests(savedTests);
+        }
+      } catch (e) {
+        console.warn('IndexedDB initial load note:', e);
+      }
+    }
+    hydrateStorage();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // Dual sync to IndexedDB and LocalStorage
+  useEffect(() => {
+    savePersistentItem(STORAGE_KEY_PROPOSALS, proposals);
   }, [proposals]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_CLINICS, JSON.stringify(clinics));
-    } catch (e) {}
+    savePersistentItem(STORAGE_KEY_CLINICS, clinics);
   }, [clinics]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_TESTS, JSON.stringify(masterTests));
-    } catch (e) {}
+    savePersistentItem(STORAGE_KEY_TESTS, masterTests);
   }, [masterTests]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_TIERS, JSON.stringify(tiers));
-    } catch (e) {}
+    savePersistentItem(STORAGE_KEY_TIERS, tiers);
   }, [tiers]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY_ACTIVE_ID, activeProposalId);
-    } catch (e) {}
+    savePersistentItem(STORAGE_KEY_ACTIVE_ID, activeProposalId);
   }, [activeProposalId]);
+
+  // Explicit manual save handler
+  const handleManualSave = async () => {
+    setSaveStatus('saving');
+    try {
+      await Promise.all([
+        savePersistentItem(STORAGE_KEY_PROPOSALS, proposals),
+        savePersistentItem(STORAGE_KEY_CLINICS, clinics),
+        savePersistentItem(STORAGE_KEY_TESTS, masterTests),
+        savePersistentItem(STORAGE_KEY_TIERS, tiers),
+        savePersistentItem(STORAGE_KEY_ACTIVE_ID, activeProposalId),
+      ]);
+    } catch (e) {
+      console.error('Error during manual save', e);
+    } finally {
+      setTimeout(() => setSaveStatus('saved'), 600);
+    }
+  };
+
+  // Quick logo update for a clinic
+  const handleUpdateClinicLogo = (clinicId: string, logoUrl: string) => {
+    setClinics(prev =>
+      prev.map(c => (c.id === clinicId ? { ...c, logoUrl } : c))
+    );
+  };
 
   // Active proposal object safely guarded
   const activeProposal: ProposalDocument =
@@ -177,7 +222,10 @@ export default function App() {
   };
 
   // Update proposal status
-  const handleUpdateStatus = (id: string, status: 'draft' | 'sent' | 'approved' | 'completed') => {
+  const handleUpdateStatus = (
+    id: string,
+    status: 'draft' | 'sent' | 'confirmed' | 'rejected' | 'approved' | 'completed'
+  ) => {
     setProposals(prev =>
       prev.map(p => (p.id === id ? { ...p, status, updatedAt: new Date().toISOString() } : p))
     );
@@ -195,19 +243,24 @@ export default function App() {
     }
   };
 
-  // Create new blank proposal
-  const handleCreateNewProposal = () => {
-    const defaultClinic = clinics[0] || DEFAULT_CLINICS[0];
+  // Create new blank proposal with company-specific sequential doc number
+  const handleCreateNewProposal = (preferredClinicId?: string) => {
+    const targetClinic =
+      (preferredClinicId ? clinics.find(c => c.id === preferredClinicId) : null) ||
+      clinics[0] ||
+      DEFAULT_CLINICS[0];
     const newId = `prop-${Date.now()}`;
+    const newDocNo = generateCompanyDocNumber(targetClinic, proposals);
+
     const newDoc: ProposalDocument = {
       id: newId,
-      documentNo: `BK-QT-${new Date().getFullYear() + 543}-${Math.floor(100 + Math.random() * 900)}`,
+      documentNo: newDocNo,
       title: 'ใบเสนอราคาใหม่ (ยังไม่ระบุชื่อบริษัท)',
-      clinicProfileId: defaultClinic.id,
+      clinicProfileId: targetClinic.id,
       dateText: getTodayThaiDate('standard'),
-      subject: defaultClinic.defaultSubject || 'ขอเสนอโครงการตรวจสุขภาพเคลื่อนที่ ประจำปี 2569',
+      subject: targetClinic.defaultSubject || 'ขอเสนอโครงการตรวจสุขภาพเคลื่อนที่ ประจำปี 2569',
       attention: 'ท่านผู้บริหาร **บริษัท ลูกค้าใหม่ จำกัด**',
-      introParagraph: defaultClinic.defaultIntroText,
+      introParagraph: targetClinic.defaultIntroText,
       programs: [
         {
           id: `prog-${Date.now()}-1`,
@@ -224,17 +277,17 @@ export default function App() {
           pageBreakAfter: true,
         },
       ],
-      remarks: [...defaultClinic.defaultRemarks],
-      serviceConditions: [...defaultClinic.defaultTerms],
-      closingParagraph: defaultClinic.defaultClosingText,
-      signer: { ...defaultClinic.defaultSigner },
+      remarks: [...targetClinic.defaultRemarks],
+      serviceConditions: [...targetClinic.defaultTerms],
+      closingParagraph: targetClinic.defaultClosingText,
+      signer: { ...targetClinic.defaultSigner },
       clientConfirmation: {
         show: true,
         title: 'ยืนยันการใช้บริการ',
         signatureLabel: 'ลงชื่อ.................................................ผู้รับบริการ',
         namePlaceholder: '(.................................................)',
       },
-      coordinators: defaultClinic.defaultCoordinators.map(c => ({ ...c })),
+      coordinators: targetClinic.defaultCoordinators.map(c => ({ ...c })),
       status: 'draft',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -320,6 +373,7 @@ export default function App() {
           onChangeViewMode={setViewMode}
           onExportData={handleExportData}
           onImportData={handleImportData}
+          saveStatus={saveStatus}
         />
 
         {/* Main Content Area */}
@@ -401,6 +455,9 @@ export default function App() {
                         tiers={tiers}
                         onOpenClinicProfiles={() => setIsClinicModalOpen(true)}
                         onOpenMasterCatalog={() => setIsCatalogModalOpen(true)}
+                        onUpdateClinicLogo={handleUpdateClinicLogo}
+                        allProposals={proposals}
+                        onSave={handleManualSave}
                       />
                     </ErrorBoundary>
                   )}
@@ -465,6 +522,9 @@ export default function App() {
                     tiers={tiers}
                     onOpenClinicProfiles={() => setIsClinicModalOpen(true)}
                     onOpenMasterCatalog={() => setIsCatalogModalOpen(true)}
+                    onUpdateClinicLogo={handleUpdateClinicLogo}
+                    allProposals={proposals}
+                    onSave={handleManualSave}
                   />
                 </ErrorBoundary>
               )}

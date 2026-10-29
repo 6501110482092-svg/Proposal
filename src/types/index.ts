@@ -22,7 +22,9 @@ export interface MasterTest {
 export interface ClinicProfile {
   id: string;
   name: string;
+  englishName?: string;
   shortName: string;
+  docPrefix?: string; // e.g. "BK", "NN", "MC"
   logoUrl?: string; // Image URL or Base64 data
   taxId: string;
   licenseNo: string;
@@ -138,7 +140,7 @@ export interface ProposalDocument {
   syncTableBorderColor?: boolean;
   tableBorderColor?: string;
 
-  status: 'draft' | 'sent' | 'approved' | 'completed';
+  status: 'draft' | 'sent' | 'confirmed' | 'rejected' | 'approved' | 'completed';
   createdAt: string;
   updatedAt: string;
 }

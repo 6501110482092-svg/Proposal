@@ -8,7 +8,15 @@ import {
   ProposalProgram,
 } from '../types';
 import { TestSelectorModal } from './TestSelectorModal';
-import { insertBoldMarkdown } from '../utils/richText';
+import { ClinicLogo } from './ClinicLogo';
+import { compressLogoImage } from '../utils/persistentStorage';
+import {
+  TextFormatToolbar,
+  insertBoldMarkdown,
+  insertNewline,
+  insertTabIndent,
+} from '../utils/richText';
+import { generateCompanyDocNumber } from '../utils/docNumber';
 import { getTodayThaiDate, THAI_MONTHS } from '../utils/thaiDate';
 import { bahttext } from '../utils/bahttext';
 import {
@@ -31,6 +39,10 @@ import {
   Users,
   Settings,
   HelpCircle,
+  Upload,
+  Save,
+  CornerDownLeft,
+  ArrowRightToLine,
 } from 'lucide-react';
 
 interface ProposalEditorProps {
@@ -41,6 +53,9 @@ interface ProposalEditorProps {
   tiers: PriceTier[];
   onOpenClinicProfiles: () => void;
   onOpenMasterCatalog: () => void;
+  onUpdateClinicLogo?: (clinicId: string, logoUrl: string) => void;
+  allProposals?: ProposalDocument[];
+  onSave?: () => void;
 }
 
 export const ProposalEditor: React.FC<ProposalEditorProps> = ({
@@ -51,9 +66,27 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   tiers,
   onOpenClinicProfiles,
   onOpenMasterCatalog,
+  onUpdateClinicLogo,
+  allProposals = [],
+  onSave,
 }) => {
+  // Save feedback state
+  const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+
+  const handleSave = () => {
+    if (onSave) {
+      onSave();
+    }
+    const now = new Date();
+    const timeStr = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')} น.`;
+    setSaveSuccessMessage(`บันทึกข้อมูลเรียบร้อยแล้ว (${timeStr})`);
+    setTimeout(() => setSaveSuccessMessage(null), 3500);
+  };
+
   // Test Selector Modal state
   const [selectorModalProgId, setSelectorModalProgId] = useState<string | null>(null);
+  const quickLogoInputRef = useRef<HTMLInputElement>(null);
+  const [logoUploading, setLogoUploading] = useState(false);
 
   // Active section collapses
   const [collapsedSections, setCollapsedSections] = useState<Record<string, boolean>>({
@@ -72,6 +105,13 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   const currentClinic =
     clinics.find(c => c.id === proposal.clinicProfileId) || clinics[0] || null;
 
+  // Handle auto-generating document number for the clinic
+  const handleGenerateDocNo = () => {
+    if (!currentClinic) return;
+    const newDocNo = generateCompanyDocNumber(currentClinic, allProposals);
+    onChange({ ...proposal, documentNo: newDocNo });
+  };
+
   // Handle changing issuing clinic
   const handleClinicChange = (clinicId: string) => {
     const selected = clinics.find(c => c.id === clinicId);
@@ -86,6 +126,23 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   // Inline confirmation state to avoid window.confirm iframe blockers
   const [programToDeleteId, setProgramToDeleteId] = useState<string | null>(null);
   const [showConfirmPullDefaults, setShowConfirmPullDefaults] = useState(false);
+
+  // Quick logo upload directly from Section 1
+  const handleQuickLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !currentClinic || !onUpdateClinicLogo) return;
+
+    setLogoUploading(true);
+    try {
+      const compressed = await compressLogoImage(file, 380, 380, 0.88);
+      onUpdateClinicLogo(currentClinic.id, compressed);
+    } catch (err) {
+      console.error('Failed to upload logo:', err);
+    } finally {
+      setLogoUploading(false);
+      e.target.value = '';
+    }
+  };
 
   // Pull defaults from the selected clinic
   const handlePullClinicDefaults = () => {
@@ -103,8 +160,9 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     setShowConfirmPullDefaults(false);
   };
 
-  // Textarea references for bold insertion
-  const attentionRef = useRef<HTMLInputElement>(null);
+  // Textarea references for bold insertion and format toolbars
+  const subjectRef = useRef<HTMLTextAreaElement>(null);
+  const attentionRef = useRef<HTMLTextAreaElement>(null);
   const introRef = useRef<HTMLTextAreaElement>(null);
   const closingRef = useRef<HTMLTextAreaElement>(null);
 
@@ -277,6 +335,29 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
   return (
     <div className="w-full space-y-5 text-sm">
+      {/* Explicit Save Action Bar (Addresses user request for a manual save button with feedback) */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-3.5 shadow-xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={handleSave}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs px-4 py-2.5 rounded-xl flex items-center gap-2 shadow-sm transition hover:scale-[1.02] cursor-pointer"
+          >
+            <Save className="w-4 h-4" />
+            <span>บันทึกข้อมูล (Save)</span>
+          </button>
+          {saveSuccessMessage && (
+            <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 px-3 py-1.5 rounded-xl animate-fade-in shadow-2xs">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+              <span>{saveSuccessMessage}</span>
+            </div>
+          )}
+        </div>
+        <div className="text-xs text-slate-500 font-medium">
+          เอกสาร: <strong className="font-mono text-slate-800">{proposal.documentNo}</strong> ({currentClinic?.shortName})
+        </div>
+      </div>
+
       {/* 1. Header & Clinic Selection */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div
@@ -349,6 +430,64 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                     <RefreshCw className="w-3 h-3" /> ดึงข้อความเริ่มต้นของบริษัทนี้
                   </button>
                 </div>
+
+                {/* Quick Logo Uploader for Current Clinic */}
+                <div className="mt-3 p-2.5 bg-slate-50 border border-slate-200 rounded-xl flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className="w-14 h-11 bg-white border border-slate-300 rounded-lg p-1 flex items-center justify-center overflow-hidden shrink-0 shadow-2xs">
+                      <ClinicLogo
+                        logoUrl={currentClinic?.logoUrl}
+                        clinicId={currentClinic?.id}
+                        className="max-h-full max-w-full object-contain"
+                      />
+                    </div>
+                    <div>
+                      <div className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                        <span>รูปภาพโลโก้หัวกระดาษ</span>
+                        {currentClinic?.logoUrl ? (
+                          <span className="text-[10px] text-emerald-700 bg-emerald-50 px-1.5 py-0.2 rounded border border-emerald-200 font-semibold">
+                            ใช้รูปที่อัปโหลด
+                          </span>
+                        ) : (
+                          <span className="text-[10px] text-slate-500 bg-white px-1.5 py-0.2 rounded border border-slate-200 font-normal">
+                            ใช้โลโก้เริ่มต้น
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-slate-500">
+                        {logoUploading ? 'กำลังบันทึกรูปภาพ...' : 'แสดงที่มุมซ้ายบนของหัวกระดาษทุกหน้า'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      ref={quickLogoInputRef}
+                      type="file"
+                      accept="image/png,image/jpeg,image/webp,image/svg+xml"
+                      onChange={handleQuickLogoUpload}
+                      className="hidden"
+                    />
+                    <button
+                      type="button"
+                      disabled={logoUploading}
+                      onClick={() => quickLogoInputRef.current?.click()}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-100 text-sky-700 hover:text-sky-800 border border-sky-300 rounded-xl text-xs font-bold flex items-center gap-1.5 transition shadow-2xs cursor-pointer disabled:opacity-50"
+                    >
+                      <Upload className="w-3.5 h-3.5" />
+                      <span>{currentClinic?.logoUrl ? 'เปลี่ยนรูปโลโก้' : 'อัปโหลดรูปโลโก้'}</span>
+                    </button>
+                    {currentClinic?.logoUrl && onUpdateClinicLogo && (
+                      <button
+                        type="button"
+                        onClick={() => onUpdateClinicLogo(currentClinic.id, '')}
+                        className="px-2 py-1.5 text-slate-500 hover:text-red-600 text-xs font-medium rounded-xl hover:bg-red-50 transition cursor-pointer"
+                        title="รีเซ็ตกลับเป็นโลโก้เริ่มต้น"
+                      >
+                        รีเซ็ต
+                      </button>
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Date Input */}
@@ -401,14 +540,25 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                 />
               </div>
               <div>
-                <label className="block text-xs font-semibold text-slate-600 mb-1">
-                  เลขที่เอกสาร
-                </label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="block text-xs font-semibold text-slate-700">
+                    เลขที่เอกสาร
+                  </label>
+                  <button
+                    type="button"
+                    onClick={handleGenerateDocNo}
+                    className="text-[11px] text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-300 px-2 py-0.5 rounded-lg font-bold flex items-center gap-1 transition cursor-pointer"
+                    title="สร้างเลขที่เอกสารอัตโนมัติ เช่น BK-QT-2569-001"
+                  >
+                    <Sparkles className="w-3 h-3 text-sky-600" />
+                    <span>รันเลขที่อัตโนมัติ ({currentClinic?.docPrefix || 'BK'}-QT-...)</span>
+                  </button>
+                </div>
                 <input
                   type="text"
                   value={proposal.documentNo}
                   onChange={e => onChange({ ...proposal, documentNo: e.target.value })}
-                  className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono"
+                  className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold bg-white focus:ring-1 focus:ring-sky-500"
                 />
               </div>
             </div>
@@ -627,50 +777,67 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
           <div className="p-5 space-y-4">
             {/* Subject (เรื่อง) */}
             <div>
-              <label className="block text-xs font-bold text-slate-700 mb-1">
-                เรื่อง (หัวข้อการเสนอราคา) *
-              </label>
-              <input
-                type="text"
+              <div className="flex items-center justify-between mb-1">
+                <label className="block text-xs font-bold text-slate-700">
+                  เรื่อง (หัวข้อการเสนอราคา) *
+                </label>
+                <TextFormatToolbar
+                  inputRef={subjectRef}
+                  value={proposal.subject}
+                  onChange={val => onChange({ ...proposal, subject: val })}
+                />
+              </div>
+              <textarea
+                ref={subjectRef}
+                rows={2}
                 value={proposal.subject}
                 onChange={e => onChange({ ...proposal, subject: e.target.value })}
-                className="w-full text-sm font-medium border border-slate-300 rounded-xl px-3 py-2 outline-hidden focus:ring-2 focus:ring-sky-500"
+                onKeyDown={e => {
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (subjectRef.current) {
+                      insertTabIndent(subjectRef.current, proposal.subject, val =>
+                        onChange({ ...proposal, subject: val })
+                      );
+                    }
+                  }
+                }}
+                className="w-full text-sm font-medium border border-slate-300 rounded-xl px-3 py-2 outline-hidden focus:ring-2 focus:ring-sky-500 leading-snug"
               />
             </div>
 
-            {/* Attention (เรียน) with bold styling helper */}
+            {/* Attention (เรียน) with multiline and toolbar */}
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-xs font-bold text-slate-700">
                   เรียน (ผู้บริหาร / ชื่อบริษัทลูกค้า) *
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (attentionRef.current) {
-                      insertBoldMarkdown(
-                        attentionRef.current,
-                        proposal.attention,
-                        val => onChange({ ...proposal, attention: val })
-                      );
-                    }
-                  }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded flex items-center gap-1"
-                  title="คลุมดำข้อความแล้วกดเพื่อทำเป็นตัวหนา"
-                >
-                  <Bold className="w-3.5 h-3.5" /> ทำเป็นตัวหนา [B]
-                </button>
+                <TextFormatToolbar
+                  inputRef={attentionRef}
+                  value={proposal.attention}
+                  onChange={val => onChange({ ...proposal, attention: val })}
+                />
               </div>
-              <input
+              <textarea
                 ref={attentionRef}
-                type="text"
+                rows={2}
                 value={proposal.attention}
                 onChange={e => onChange({ ...proposal, attention: e.target.value })}
+                onKeyDown={e => {
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (attentionRef.current) {
+                      insertTabIndent(attentionRef.current, proposal.attention, val =>
+                        onChange({ ...proposal, attention: val })
+                      );
+                    }
+                  }
+                }}
                 placeholder="ท่านผู้บริหาร **บริษัท เจริญสุข ฟาร์มา ซัพพลาย จำกัด**"
-                className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 outline-hidden focus:ring-2 focus:ring-sky-500"
+                className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 outline-hidden focus:ring-2 focus:ring-sky-500 leading-snug"
               />
               <span className="text-[11px] text-slate-500 mt-1 block">
-                เคล็ดลับ: ข้อความที่อยู่ใน <strong className="font-mono text-slate-700">**ชื่อบริษัท**</strong> จะแสดงเป็นตัวหนาบนใบเสนอราคา
+                เคล็ดลับ: สามารถกดปุ่ม <strong className="text-sky-700 font-semibold">[↵ ขึ้นบรรทัดใหม่]</strong> หรือ <strong className="text-indigo-700 font-semibold">[⇥ ย่อหน้า]</strong> เพื่อจัดข้อความชื่อบริษัทหรือคำขึ้นต้นได้ตามต้องการ
               </span>
             </div>
 
@@ -680,28 +847,28 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                 <label className="block text-xs font-bold text-slate-700">
                   ย่อหน้ารายละเอียดบรรยายเกี่ยวกับบริษัท (ดึงอัตโนมัติจากสมุดบริษัท)
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (introRef.current) {
-                      insertBoldMarkdown(
-                        introRef.current,
-                        proposal.introParagraph,
-                        val => onChange({ ...proposal, introParagraph: val })
-                      );
-                    }
-                  }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded flex items-center gap-1"
-                >
-                  <Bold className="w-3.5 h-3.5" /> ทำเป็นตัวหนา [B]
-                </button>
+                <TextFormatToolbar
+                  inputRef={introRef}
+                  value={proposal.introParagraph}
+                  onChange={val => onChange({ ...proposal, introParagraph: val })}
+                />
               </div>
               <textarea
                 ref={introRef}
                 rows={4}
                 value={proposal.introParagraph}
                 onChange={e => onChange({ ...proposal, introParagraph: e.target.value })}
-                className="w-full text-sm border border-slate-300 rounded-xl p-3 outline-hidden focus:ring-2 focus:ring-sky-500"
+                onKeyDown={e => {
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (introRef.current) {
+                      insertTabIndent(introRef.current, proposal.introParagraph, val =>
+                        onChange({ ...proposal, introParagraph: val })
+                      );
+                    }
+                  }
+                }}
+                className="w-full text-sm border border-slate-300 rounded-xl p-3 outline-hidden focus:ring-2 focus:ring-sky-500 leading-relaxed"
               />
             </div>
           </div>
@@ -935,19 +1102,75 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                         className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs hover:border-slate-300 transition"
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                          {/* Order and Name */}
-                          <div className="flex items-center gap-2 flex-1">
-                            <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center flex-shrink-0">
+                          {/* Order and Name (Multi-line with Enter, Tab and Bold buttons) */}
+                          <div className="flex items-start gap-2 flex-1 min-w-[260px]">
+                            <span className="w-6 h-6 rounded-full bg-slate-100 text-slate-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mt-1">
                               {item.orderNumber || itemIdx + 1}
                             </span>
-                            <input
-                              type="text"
-                              value={item.name}
-                              onChange={e =>
-                                handleUpdateItem(prog.id, item.id, { name: e.target.value })
-                              }
-                              className="w-full font-medium text-sm text-slate-900 border-none outline-hidden focus:ring-1 focus:ring-sky-500 rounded px-1.5 py-0.5"
-                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center justify-between mb-1">
+                                <span className="text-[10px] text-slate-400">
+                                  ชื่อรายการตรวจ (ขึ้นบรรทัดใหม่/ย่อหน้าได้):
+                                </span>
+                                <div className="flex items-center gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newName = (item.name || '') + '\n';
+                                      handleUpdateItem(prog.id, item.id, { name: newName });
+                                    }}
+                                    className="text-[10px] text-sky-700 hover:text-sky-900 bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200 font-bold transition cursor-pointer"
+                                    title="ขึ้นบรรทัดใหม่ [↵]"
+                                  >
+                                    ↵ บรรทัดใหม่
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newName = (item.name || '') + '    ';
+                                      handleUpdateItem(prog.id, item.id, { name: newName });
+                                    }}
+                                    className="text-[10px] text-indigo-700 hover:text-indigo-900 bg-indigo-50 px-1.5 py-0.2 rounded border border-indigo-200 font-bold transition cursor-pointer"
+                                    title="ย่อหน้า [Tab]"
+                                  >
+                                    ⇥ ย่อหน้า
+                                  </button>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const newName = item.name?.startsWith('**') && item.name?.endsWith('**')
+                                        ? item.name.slice(2, -2)
+                                        : `**${item.name || ''}**`;
+                                      handleUpdateItem(prog.id, item.id, { name: newName });
+                                    }}
+                                    className="text-[10px] text-slate-700 hover:text-slate-900 bg-slate-100 px-1.5 py-0.2 rounded border border-slate-200 font-bold transition cursor-pointer"
+                                    title="ทำตัวหนา [B]"
+                                  >
+                                    B
+                                  </button>
+                                </div>
+                              </div>
+                              <textarea
+                                rows={item.name && item.name.includes('\n') ? 2 : 1}
+                                value={item.name}
+                                onChange={e =>
+                                  handleUpdateItem(prog.id, item.id, { name: e.target.value })
+                                }
+                                onKeyDown={e => {
+                                  if (e.key === 'Tab') {
+                                    e.preventDefault();
+                                    const target = e.currentTarget;
+                                    const start = target.selectionStart;
+                                    const end = target.selectionEnd;
+                                    const val = target.value;
+                                    const updated = val.substring(0, start) + '    ' + val.substring(end);
+                                    handleUpdateItem(prog.id, item.id, { name: updated });
+                                  }
+                                }}
+                                placeholder="ชื่อรายการตรวจ..."
+                                className="w-full font-medium text-sm text-slate-900 border border-slate-200 hover:border-slate-300 focus:border-sky-500 outline-hidden focus:ring-1 focus:ring-sky-500 rounded-lg px-2 py-1 leading-snug resize-y"
+                              />
+                            </div>
                           </div>
 
                           {/* Pricing Type & Headcount Controls */}
@@ -1236,7 +1459,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         {!collapsedSections.terms && (
           <div className="p-5 space-y-4">
-            {/* Remarks */}
+            {/* Remarks Section */}
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-xs font-bold text-slate-700">
@@ -1247,38 +1470,94 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                   onClick={() =>
                     onChange({
                       ...proposal,
-                      remarks: [...(proposal.remarks || []), 'ข้อความหมายเหตุใหม่'],
+                      remarks: [...proposal.remarks, 'หมายเหตุข้อใหม่'],
                     })
                   }
-                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
+                  className="text-xs text-sky-600 hover:text-sky-800 font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" /> เพิ่มหมายเหตุ
                 </button>
               </div>
               <div className="space-y-2">
                 {proposal.remarks.map((rem, idx) => (
-                  <div key={idx} className="flex items-center gap-2">
-                    <span className="text-xs font-bold text-slate-400">•</span>
-                    <input
-                      type="text"
+                  <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500">หมายเหตุข้อที่ {idx + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...proposal.remarks];
+                            updated[idx] = (updated[idx] || '') + '\n';
+                            onChange({ ...proposal, remarks: updated });
+                          }}
+                          className="text-[10px] text-sky-700 bg-white border border-sky-200 px-1.5 py-0.5 rounded font-bold hover:bg-sky-50 transition cursor-pointer"
+                          title="ขึ้นบรรทัดใหม่"
+                        >
+                          ↵ บรรทัดใหม่
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...proposal.remarks];
+                            updated[idx] = (updated[idx] || '') + '    ';
+                            onChange({ ...proposal, remarks: updated });
+                          }}
+                          className="text-[10px] text-indigo-700 bg-white border border-indigo-200 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-50 transition cursor-pointer"
+                          title="ย่อหน้า (4 เคาะ)"
+                        >
+                          ⇥ ย่อหน้า
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...proposal.remarks];
+                            const current = updated[idx] || '';
+                            updated[idx] = current.startsWith('**') && current.endsWith('**')
+                              ? current.slice(2, -2)
+                              : `**${current}**`;
+                            onChange({ ...proposal, remarks: updated });
+                          }}
+                          className="text-[10px] text-slate-700 bg-white border border-slate-300 px-1.5 py-0.5 rounded font-bold hover:bg-slate-100 transition cursor-pointer"
+                          title="ทำตัวหนา"
+                        >
+                          B
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = proposal.remarks.filter((_, i) => i !== idx);
+                            onChange({ ...proposal, remarks: updated });
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-500 rounded transition cursor-pointer ml-1"
+                          title="ลบข้อนี้"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+                    <textarea
+                      rows={rem.includes('\n') ? 3 : 2}
                       value={rem}
                       onChange={e => {
                         const updated = [...proposal.remarks];
                         updated[idx] = e.target.value;
                         onChange({ ...proposal, remarks: updated });
                       }}
-                      className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 outline-hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = proposal.remarks.filter((_, i) => i !== idx);
-                        onChange({ ...proposal, remarks: updated });
+                      onKeyDown={e => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          const target = e.currentTarget;
+                          const start = target.selectionStart;
+                          const end = target.selectionEnd;
+                          const val = target.value;
+                          const updated = [...proposal.remarks];
+                          updated[idx] = val.substring(0, start) + '    ' + val.substring(end);
+                          onChange({ ...proposal, remarks: updated });
+                        }
                       }}
-                      className="p-1 text-slate-400 hover:text-red-500"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-hidden focus:ring-1 focus:ring-sky-500 leading-relaxed"
+                    />
                   </div>
                 ))}
               </div>
@@ -1301,35 +1580,91 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                       ],
                     })
                   }
-                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1"
+                  className="text-xs text-indigo-600 hover:text-indigo-800 font-semibold flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" /> เพิ่มเงื่อนไข
                 </button>
               </div>
               <div className="space-y-2">
                 {proposal.serviceConditions.map((cond, idx) => (
-                  <div key={idx} className="flex items-start gap-2">
-                    <span className="text-xs font-bold text-slate-400 pt-2">{idx + 1}.</span>
+                  <div key={idx} className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-1.5">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold text-slate-500">เงื่อนไขข้อที่ {idx + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...proposal.serviceConditions];
+                            updated[idx] = (updated[idx] || '') + '\n';
+                            onChange({ ...proposal, serviceConditions: updated });
+                          }}
+                          className="text-[10px] text-sky-700 bg-white border border-sky-200 px-1.5 py-0.5 rounded font-bold hover:bg-sky-50 transition cursor-pointer"
+                          title="ขึ้นบรรทัดใหม่"
+                        >
+                          ↵ บรรทัดใหม่
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...proposal.serviceConditions];
+                            updated[idx] = (updated[idx] || '') + '    ';
+                            onChange({ ...proposal, serviceConditions: updated });
+                          }}
+                          className="text-[10px] text-indigo-700 bg-white border border-indigo-200 px-1.5 py-0.5 rounded font-bold hover:bg-indigo-50 transition cursor-pointer"
+                          title="ย่อหน้า (4 เคาะ)"
+                        >
+                          ⇥ ย่อหน้า
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...proposal.serviceConditions];
+                            const current = updated[idx] || '';
+                            updated[idx] = current.startsWith('**') && current.endsWith('**')
+                              ? current.slice(2, -2)
+                              : `**${current}**`;
+                            onChange({ ...proposal, serviceConditions: updated });
+                          }}
+                          className="text-[10px] text-slate-700 bg-white border border-slate-300 px-1.5 py-0.5 rounded font-bold hover:bg-slate-100 transition cursor-pointer"
+                          title="ทำตัวหนา"
+                        >
+                          B
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = proposal.serviceConditions.filter((_, i) => i !== idx);
+                            onChange({ ...proposal, serviceConditions: updated });
+                          }}
+                          className="p-1 text-slate-400 hover:text-red-500 rounded transition cursor-pointer ml-1"
+                          title="ลบข้อนี้"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
                     <textarea
-                      rows={2}
+                      rows={cond.includes('\n') ? 3 : 2}
                       value={cond}
                       onChange={e => {
                         const updated = [...proposal.serviceConditions];
                         updated[idx] = e.target.value;
                         onChange({ ...proposal, serviceConditions: updated });
                       }}
-                      className="w-full text-xs border border-slate-300 rounded-lg p-2 outline-hidden"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const updated = proposal.serviceConditions.filter((_, i) => i !== idx);
-                        onChange({ ...proposal, serviceConditions: updated });
+                      onKeyDown={e => {
+                        if (e.key === 'Tab') {
+                          e.preventDefault();
+                          const target = e.currentTarget;
+                          const start = target.selectionStart;
+                          const end = target.selectionEnd;
+                          const val = target.value;
+                          const updated = [...proposal.serviceConditions];
+                          updated[idx] = val.substring(0, start) + '    ' + val.substring(end);
+                          onChange({ ...proposal, serviceConditions: updated });
+                        }
                       }}
-                      className="p-1 text-slate-400 hover:text-red-500 pt-2"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
+                      className="w-full text-xs border border-slate-300 rounded-lg p-2 bg-white outline-hidden focus:ring-1 focus:ring-sky-500 leading-relaxed"
+                    />
                   </div>
                 ))}
               </div>
@@ -1341,28 +1676,28 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                 <label className="block text-xs font-bold text-slate-700">
                   ย่อหน้าสุดท้าย (จึงเรียนมาเพื่อโปรดพิจารณา...)
                 </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (closingRef.current) {
-                      insertBoldMarkdown(
-                        closingRef.current,
-                        proposal.closingParagraph,
-                        val => onChange({ ...proposal, closingParagraph: val })
-                      );
-                    }
-                  }}
-                  className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold px-2 py-0.5 rounded flex items-center gap-1"
-                >
-                  <Bold className="w-3.5 h-3.5" /> ทำเป็นตัวหนา [B]
-                </button>
+                <TextFormatToolbar
+                  inputRef={closingRef}
+                  value={proposal.closingParagraph}
+                  onChange={val => onChange({ ...proposal, closingParagraph: val })}
+                />
               </div>
               <textarea
                 ref={closingRef}
                 rows={3}
                 value={proposal.closingParagraph}
                 onChange={e => onChange({ ...proposal, closingParagraph: e.target.value })}
-                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-hidden"
+                onKeyDown={e => {
+                  if (e.key === 'Tab') {
+                    e.preventDefault();
+                    if (closingRef.current) {
+                      insertTabIndent(closingRef.current, proposal.closingParagraph, val =>
+                        onChange({ ...proposal, closingParagraph: val })
+                      );
+                    }
+                  }
+                }}
+                className="w-full text-xs border border-slate-300 rounded-xl p-2.5 outline-hidden focus:ring-1 focus:ring-sky-500 leading-relaxed"
               />
             </div>
           </div>

@@ -26,6 +26,8 @@ import {
   Printer,
   ShieldCheck,
   FileCheck,
+  XCircle,
+  HelpCircle,
 } from 'lucide-react';
 
 interface DashboardViewProps {
@@ -35,10 +37,10 @@ interface DashboardViewProps {
   onSelectProposal: (id: string) => void;
   onOpenEditor: (proposalId: string) => void;
   onOpenPreview: (proposalId: string) => void;
-  onCreateNewProposal: () => void;
+  onCreateNewProposal: (clinicId?: string) => void;
   onOpenCloneModal: (proposal: ProposalDocument) => void;
   onDeleteProposal: (id: string) => void;
-  onUpdateStatus: (id: string, status: 'draft' | 'sent' | 'approved' | 'completed') => void;
+  onUpdateStatus: (id: string, status: 'draft' | 'sent' | 'confirmed' | 'rejected') => void;
   onOpenClinicProfiles: () => void;
   onOpenMasterCatalog: () => void;
   onExportData: () => void;
@@ -63,7 +65,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [clinicFilter, setClinicFilter] = useState<string>('all');
+  // Company / Clinic separation: User can select a specific clinic or view all
+  const [selectedClinicTab, setSelectedClinicTab] = useState<string>(() => {
+    return clinics[0]?.id || 'all';
+  });
   const [yearFilter, setYearFilter] = useState<string>('all');
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
@@ -108,26 +113,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     return p.programs[0]?.defaultHeadcount || 0;
   };
 
-  // Metrics
-  const totalProposalsCount = proposals.length;
-  const totalQuotedValue = proposals.reduce(
-    (sum, p) => sum + getProposalGrandTotal(p),
-    0
-  );
+  // Scoped proposals for the selected company/clinic
+  const scopedProposals =
+    selectedClinicTab === 'all'
+      ? proposals
+      : proposals.filter(p => p.clinicProfileId === selectedClinicTab);
+
+  const activeClinicInfo = clinics.find(c => c.id === selectedClinicTab);
+
+  // Metrics calculated strictly for the current company/clinic scope
+  const totalProposalsCount = scopedProposals.length;
+
+  // New metric requested by user: มูลค่าการยืนยันใช้บริการ (Confirmed value)
+  const totalConfirmedValue = scopedProposals
+    .filter(p => p.status === 'confirmed' || p.status === 'approved')
+    .reduce((sum, p) => sum + getProposalGrandTotal(p), 0);
 
   const uniqueClients = new Set(
-    proposals.map(p => getCleanClientName(p.attention)).filter(Boolean)
+    scopedProposals.map(p => getCleanClientName(p.attention)).filter(Boolean)
   ).size;
 
-  const countDraft = proposals.filter(p => p.status === 'draft').length;
-  const countSent = proposals.filter(p => p.status === 'sent').length;
-  const countApproved = proposals.filter(p => p.status === 'approved').length;
-  const countCompleted = proposals.filter(p => p.status === 'completed').length;
+  const countDraft = scopedProposals.filter(p => p.status === 'draft').length;
+  const countSent = scopedProposals.filter(p => p.status === 'sent').length;
+  const countConfirmed = scopedProposals.filter(
+    p => p.status === 'confirmed' || p.status === 'approved'
+  ).length;
+  const countRejected = scopedProposals.filter(p => p.status === 'rejected').length;
 
   // Extract years from dateText or createdAt
   const years = Array.from(
     new Set(
-      proposals.map(p => {
+      scopedProposals.map(p => {
         const match = p.dateText?.match(/25\d{2}|20\d{2}/);
         return match ? match[0] : '';
       })
@@ -135,7 +151,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   ).filter(Boolean);
 
   // Safe search & filter
-  const filteredProposals = proposals.filter(p => {
+  const filteredProposals = scopedProposals.filter(p => {
     const searchLower = (searchQuery || '').toLowerCase().trim();
     const matchSearch =
       searchLower === '' ||
@@ -144,12 +160,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       (p.documentNo || '').toLowerCase().includes(searchLower) ||
       (p.dateText || '').toLowerCase().includes(searchLower);
 
-    const matchStatus = statusFilter === 'all' || p.status === statusFilter;
-    const matchClinic = clinicFilter === 'all' || p.clinicProfileId === clinicFilter;
+    const matchStatus =
+      statusFilter === 'all' ||
+      p.status === statusFilter ||
+      (statusFilter === 'confirmed' && p.status === 'approved');
+
     const matchYear =
       yearFilter === 'all' || (p.dateText && p.dateText.includes(yearFilter));
 
-    return matchSearch && matchStatus && matchClinic && matchYear;
+    return matchSearch && matchStatus && matchYear;
   });
 
   const activeDoc = proposals.find(p => p.id === activeProposalId) || proposals[0];
@@ -171,16 +190,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               แดชบอร์ดภาพรวมและประวัติการเสนอขาย
             </h1>
             <p className="text-sm text-slate-300 leading-relaxed">
-              ติดตามประวัติโครงการตรวจสุขภาพเคลื่อนที่ประจำปี สรุปมูลค่าการเสนอขาย วันเวลาที่ทำเอกสาร และเลือกจัดการใบเสนอราคาได้ในที่เดียว
+              {activeClinicInfo
+                ? `กำลังดูข้อมูลของ: ${activeClinicInfo.name} (รหัสรันเอกสาร: ${activeClinicInfo.docPrefix || 'BK'}-QT-...)`
+                : 'ติดตามประวัติโครงการตรวจสุขภาพเคลื่อนที่ประจำปี สรุปมูลค่าการยืนยันใช้บริการ แยกบริษัทชัดเจน'}
             </p>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={onCreateNewProposal}
+              onClick={() => onCreateNewProposal(selectedClinicTab !== 'all' ? selectedClinicTab : undefined)}
               className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
             >
-              <Plus className="w-5 h-5" /> สร้างใบเสนอราคาใหม่
+              <Plus className="w-5 h-5" /> สร้างใบเสนอราคาใหม่ {activeClinicInfo ? `(${activeClinicInfo.shortName})` : ''}
             </button>
             {activeDoc && (
               <button
@@ -194,7 +215,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 2. Key Metrics Row */}
+      {/* 2. Company / Clinic Separation Tabs (User requirement: แยกบริษัทกัน ไม่แสดงรวมทุกบริษัท) */}
+      <div className="bg-white rounded-2xl p-3 border border-slate-200/90 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-xs font-bold text-slate-600 px-1">
+          <Building2 className="w-4 h-4 text-sky-600" />
+          <span>เลือกบริษัท / คลินิกเพื่อดูข้อมูล:</span>
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {clinics.map(c => {
+            const isSelected = selectedClinicTab === c.id;
+            const cCount = proposals.filter(p => p.clinicProfileId === c.id).length;
+            return (
+              <button
+                key={c.id}
+                onClick={() => setSelectedClinicTab(c.id)}
+                className={`px-3.5 py-2 rounded-xl text-xs font-bold transition flex items-center gap-2 cursor-pointer ${
+                  isSelected
+                    ? 'bg-sky-600 text-white shadow-xs'
+                    : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                }`}
+              >
+                <span>{c.shortName || c.name}</span>
+                <span
+                  className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                    isSelected ? 'bg-white/20 text-white' : 'bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {cCount} ฉบับ
+                </span>
+              </button>
+            );
+          })}
+          <button
+            onClick={() => setSelectedClinicTab('all')}
+            className={`px-3 py-2 rounded-xl text-xs font-medium transition cursor-pointer ${
+              selectedClinicTab === 'all'
+                ? 'bg-slate-800 text-white font-bold shadow-xs'
+                : 'text-slate-500 hover:text-slate-800 hover:bg-slate-100'
+            }`}
+          >
+            ดูภาพรวมทุกบริษัท ({proposals.length})
+          </button>
+        </div>
+      </div>
+
+      {/* 3. Key Metrics Row */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Metric 1 */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
@@ -211,28 +276,29 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span className="text-xs text-slate-500 font-medium">ฉบับ</span>
           </div>
           <p className="mt-2 text-xs text-slate-500 flex items-center gap-1">
-            <Clock className="w-3.5 h-3.5 text-slate-400" /> บันทึกประวัติในระบบแล้ว
+            <Clock className="w-3.5 h-3.5 text-slate-400" />
+            {activeClinicInfo ? `ของ ${activeClinicInfo.shortName}` : 'บันทึกในระบบทั้งหมด'}
           </p>
         </div>
 
-        {/* Metric 2 */}
+        {/* Metric 2: Changed from "มูลค่าเสนอขายรวม" to "มูลค่าการยืนยันใช้บริการ" */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
-              มูลค่าเสนอขายรวม
+              มูลค่าการยืนยันใช้บริการ
             </span>
             <div className="p-2.5 bg-emerald-50 text-emerald-600 rounded-xl">
-              <DollarSign className="w-5 h-5" />
+              <ShieldCheck className="w-5 h-5" />
             </div>
           </div>
           <div className="mt-2 flex items-baseline gap-2">
-            <span className="text-3xl font-extrabold text-slate-900">
-              {totalQuotedValue.toLocaleString()}
+            <span className="text-3xl font-extrabold text-emerald-700">
+              {totalConfirmedValue.toLocaleString()}
             </span>
             <span className="text-xs text-slate-500 font-medium">บาท</span>
           </div>
           <p className="mt-2 text-xs text-emerald-600 font-semibold flex items-center gap-1">
-            <TrendingUp className="w-3.5 h-3.5" /> ยอดรวมจากทุกโครงการ
+            <CheckCircle2 className="w-3.5 h-3.5" /> ยอดรวมจากโครงการที่ยืนยันใช้บริการ
           </p>
         </div>
 
@@ -255,7 +321,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        {/* Metric 4 */}
+        {/* Metric 4: Updated with ยืนยันการใช้บริการ and ไม่รับบริการ */}
         <div className="bg-white rounded-2xl p-5 border border-slate-200/80 shadow-xs hover:shadow-md transition">
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-slate-500 uppercase tracking-wider">
@@ -275,18 +341,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               <span className="font-bold text-blue-900">{countSent}</span>
             </div>
             <div className="flex items-center justify-between bg-emerald-50 px-2 py-1 rounded-lg">
-              <span className="text-emerald-600">อนุมัติแล้ว:</span>
-              <span className="font-bold text-emerald-900">{countApproved}</span>
+              <span className="text-emerald-700">ยืนยันบริการ:</span>
+              <span className="font-bold text-emerald-900">{countConfirmed}</span>
             </div>
-            <div className="flex items-center justify-between bg-purple-50 px-2 py-1 rounded-lg">
-              <span className="text-purple-600">เสร็จสิ้น:</span>
-              <span className="font-bold text-purple-900">{countCompleted}</span>
+            <div className="flex items-center justify-between bg-rose-50 px-2 py-1 rounded-lg">
+              <span className="text-rose-600">ไม่รับบริการ:</span>
+              <span className="font-bold text-rose-900">{countRejected}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3. Quick Master Data & Backup Shortcuts */}
+      {/* 4. Quick Master Data & Backup Shortcuts */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {/* Shortcut 1: Clinic profiles */}
         <div
@@ -302,7 +368,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 สมุดบริษัทคลินิก ({clinics.length} แห่ง)
               </h3>
               <p className="text-xs text-slate-500">
-                จัดการหัวกระดาษ อัปโหลดโลโก้ เลขผู้เสียภาษี
+                จัดการหัวกระดาษ คำย่อรันเลขที่ อัปโหลดโลโก้
               </p>
             </div>
           </div>
@@ -367,17 +433,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </div>
 
-      {/* 4. Proposal History Table & Filter Section */}
+      {/* 5. Proposal History Table & Filter Section */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         {/* Table Header & Controls */}
         <div className="p-5 border-b border-slate-200 bg-slate-50/50 flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2">
               <h2 className="text-base font-bold text-slate-900">
-                ประวัติรายการเสนอขายทั้งหมด
+                ประวัติรายการเสนอขาย {activeClinicInfo ? `(${activeClinicInfo.name})` : ''}
               </h2>
               <span className="bg-sky-100 text-sky-800 text-xs font-bold px-2.5 py-0.5 rounded-full">
-                {filteredProposals.length} จาก {proposals.length} ฉบับ
+                {filteredProposals.length} จาก {scopedProposals.length} ฉบับ
               </span>
             </div>
             <p className="text-xs text-slate-500 mt-0.5">
@@ -385,7 +451,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
           </div>
 
-          {/* Status quick tabs */}
+          {/* Status quick tabs: draft, sent, confirmed, rejected */}
           <div className="flex flex-wrap items-center gap-1 bg-slate-200/70 p-1 rounded-xl text-xs">
             <button
               onClick={() => setStatusFilter('all')}
@@ -395,7 +461,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              ทั้งหมด ({proposals.length})
+              ทั้งหมด ({scopedProposals.length})
             </button>
             <button
               onClick={() => setStatusFilter('draft')}
@@ -418,14 +484,24 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ส่งแล้ว ({countSent})
             </button>
             <button
-              onClick={() => setStatusFilter('approved')}
+              onClick={() => setStatusFilter('confirmed')}
               className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
-                statusFilter === 'approved'
+                statusFilter === 'confirmed'
                   ? 'bg-white text-emerald-900 font-bold shadow-xs'
                   : 'text-slate-600 hover:text-slate-900'
               }`}
             >
-              อนุมัติแล้ว ({countApproved})
+              ยืนยันการใช้บริการ ({countConfirmed})
+            </button>
+            <button
+              onClick={() => setStatusFilter('rejected')}
+              className={`px-3 py-1.5 rounded-lg font-medium transition cursor-pointer ${
+                statusFilter === 'rejected'
+                  ? 'bg-white text-rose-900 font-bold shadow-xs'
+                  : 'text-slate-600 hover:text-slate-900'
+              }`}
+            >
+              ไม่รับบริการ ({countRejected})
             </button>
           </div>
         </div>
@@ -444,20 +520,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
-            {/* Clinic Filter */}
-            <select
-              value={clinicFilter}
-              onChange={e => setClinicFilter(e.target.value)}
-              className="text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white outline-hidden cursor-pointer w-full sm:w-auto font-medium"
-            >
-              <option value="all">ทุกหัวกระดาษคลินิก</option>
-              {clinics.map(c => (
-                <option key={c.id} value={c.id}>
-                  {c.shortName || c.name}
-                </option>
-              ))}
-            </select>
-
             {/* Year Filter */}
             {years.length > 0 && (
               <select
@@ -474,12 +536,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               </select>
             )}
 
-            {(searchQuery || statusFilter !== 'all' || clinicFilter !== 'all' || yearFilter !== 'all') && (
+            {(searchQuery || statusFilter !== 'all' || yearFilter !== 'all') && (
               <button
                 onClick={() => {
                   setSearchQuery('');
                   setStatusFilter('all');
-                  setClinicFilter('all');
                   setYearFilter('all');
                 }}
                 className="text-xs text-slate-500 hover:text-slate-800 font-semibold px-2 py-2 whitespace-nowrap cursor-pointer"
@@ -501,7 +562,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 <th className="py-3 px-3 w-36">หัวกระดาษคลินิก</th>
                 <th className="py-3 px-3 text-center w-24">จำนวนคน</th>
                 <th className="py-3 px-4 text-right w-32">มูลค่ารวม</th>
-                <th className="py-3 px-3 text-center w-28">สถานะ</th>
+                <th className="py-3 px-3 text-center w-36">สถานะ</th>
                 <th className="py-3 px-4 text-center w-48">จัดการเอกสาร</th>
               </tr>
             </thead>
@@ -521,6 +582,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                   const clinic = clinics.find(c => c.id === p.clinicProfileId) || clinics[0];
                   const isCurrentActive = p.id === activeProposalId;
                   const clientName = getCleanClientName(p.attention);
+
+                  // Normalize status value
+                  const normalizedStatus =
+                    p.status === 'approved'
+                      ? 'confirmed'
+                      : p.status === 'completed'
+                      ? 'confirmed'
+                      : p.status || 'draft';
 
                   return (
                     <tr
@@ -554,7 +623,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                       {/* Client / Title */}
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900 text-sm">
+                        <div className="font-bold text-slate-900 text-sm whitespace-pre-line">
                           {clientName ? `บริษัท ${clientName} จำกัด` : p.attention || 'ยังไม่ระบุบริษัท'}
                         </div>
                         <div className="text-xs text-slate-500 truncate max-w-xs mt-0.5">
@@ -585,25 +654,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                         <div className="text-[10px] text-slate-400">รวมทั้งสิ้น</div>
                       </td>
 
-                      {/* Status */}
+                      {/* Status Dropdown: draft, sent, confirmed, rejected */}
                       <td className="py-3 px-3 text-center">
                         <select
-                          value={p.status || 'draft'}
+                          value={normalizedStatus}
                           onChange={e => onUpdateStatus(p.id, e.target.value as any)}
                           className={`text-[11px] font-bold px-2 py-1 rounded-lg border outline-hidden cursor-pointer transition ${
-                            p.status === 'draft'
+                            normalizedStatus === 'draft'
                               ? 'bg-slate-100 border-slate-300 text-slate-700'
-                              : p.status === 'sent'
+                              : normalizedStatus === 'sent'
                               ? 'bg-blue-50 border-blue-300 text-blue-700'
-                              : p.status === 'approved'
+                              : normalizedStatus === 'confirmed'
                               ? 'bg-emerald-50 border-emerald-300 text-emerald-800'
-                              : 'bg-purple-50 border-purple-300 text-purple-800'
+                              : 'bg-rose-50 border-rose-300 text-rose-800'
                           }`}
                         >
                           <option value="draft">ร่างเอกสาร</option>
                           <option value="sent">ส่งลูกค้าแล้ว</option>
-                          <option value="approved">อนุมัติแล้ว</option>
-                          <option value="completed">เสร็จสิ้น</option>
+                          <option value="confirmed">ยืนยันการใช้บริการ</option>
+                          <option value="rejected">ไม่รับบริการ</option>
                         </select>
                       </td>
 

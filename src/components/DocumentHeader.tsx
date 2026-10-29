@@ -4,74 +4,144 @@ import { ClinicLogo } from './ClinicLogo';
 
 interface DocumentHeaderProps {
   clinic: ClinicProfile;
+  documentNo?: string;
+  dateText?: string;
   compact?: boolean;
+  showDocMeta?: boolean;
 }
 
-export const DocumentHeader: React.FC<DocumentHeaderProps> = ({ clinic, compact = false }) => {
+export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
+  clinic,
+  documentNo,
+  dateText,
+  compact = false,
+  showDocMeta = true,
+}) => {
+  // Strip "สำนักงานใหญ่" if present as requested by the user
+  const cleanAddress = (clinic.address || '')
+    .replace(/\(?สำนักงานใหญ่\)?/g, '')
+    .trim();
+
+  // Strip "เว็บไซต์" prefix if user typed it, keep clean URL
+  const cleanWebsite = (clinic.website || '')
+    .replace(/^เว็บไซต์\s*:?\s*/i, '')
+    .trim();
+
   return (
-    <div className="relative w-full pb-2.5 border-b border-slate-900 mb-4 select-none min-h-[70px]">
-      {/* Clinic Logo on the left */}
-      <div className="absolute left-0 top-0 flex-shrink-0">
-        <ClinicLogo
-          logoUrl={clinic.logoUrl}
-          clinicId={clinic.id}
-          className={compact ? 'w-18 h-14' : 'w-20 h-16'}
-        />
-      </div>
+    <div
+      className={`w-full border-b-2 border-blue-600 select-none ${
+        compact ? 'pb-2 mb-3' : 'pb-3 mb-4'
+      }`}
+    >
+      <div className="flex items-start justify-between gap-4">
+        {/* Left Section: Logo + 1 Tab Spacing + Clinic Details */}
+        <div className="flex items-start gap-5 flex-1 min-w-0">
+          {/* Logo on the left */}
+          <div className="flex-shrink-0 pt-0.5">
+            <ClinicLogo
+              logoUrl={clinic.logoUrl}
+              clinicId={clinic.id}
+              className={compact ? 'w-16 h-13' : 'w-20 h-16'}
+            />
+          </div>
 
-      {/* Clinic Info Header - Centered as requested, with 1 tab between name & Tax ID, all bold */}
-      <div className="w-full text-center font-bold text-[12px] leading-snug text-slate-950 font-sans tracking-tight px-12">
-        {/* Row 1: Clinic Name + 1 Tab (gap-6) + Tax ID */}
-        <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-0.5 text-[12.5px] font-bold text-slate-950">
-          <span>{clinic.name}</span>
-          {clinic.taxId && (
-            <span className="whitespace-nowrap font-bold text-slate-950">
-              เลขประจำตัวผู้เสียภาษี {clinic.taxId}
-            </span>
-          )}
+          {/* Clinic Details (Left aligned, with clear 1-tab indent from logo, all lines uniform size) */}
+          <div className="flex-1 min-w-0 text-left font-sans pl-1">
+            {/* Line 1: Clinic Name (Same font size as Line 2, bold) */}
+            <h1 className="text-[12.5px] font-bold text-slate-950 leading-normal">
+              {clinic.name}
+            </h1>
+
+            {/* Line 2: English Name (Same font size as Line 1 and details, medium uppercase) */}
+            {clinic.englishName && (
+              <div className="text-[12.5px] text-slate-700 font-medium leading-normal tracking-wide uppercase mt-0.5">
+                {clinic.englishName}
+              </div>
+            )}
+
+            {/* Line 3: Address (without สำนักงานใหญ่, same font size) */}
+            {cleanAddress && (
+              <div className="text-[12.5px] text-slate-800 leading-normal font-normal mt-0.5">
+                {cleanAddress}
+              </div>
+            )}
+
+            {/* Line 4: Phone & Tax ID on the same line, same font size */}
+            <div className="text-[12.5px] text-slate-800 leading-normal font-normal mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-0.5">
+              {clinic.phone && (
+                <span>
+                  <span className="font-semibold text-slate-950">โทรศัพท์:</span> {clinic.phone}
+                </span>
+              )}
+              {clinic.taxId && (
+                <span>
+                  <span className="font-semibold text-slate-950">เลขประจำตัวผู้เสียภาษี:</span> {clinic.taxId}
+                </span>
+              )}
+            </div>
+
+            {/* Line 5: Email (English) & Website (no prefix) on the same line, same font size */}
+            <div className="text-[12.5px] text-slate-800 leading-normal font-normal mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-0.5">
+              {clinic.email && (
+                <span>
+                  <span className="font-semibold text-slate-950">Email:</span>{' '}
+                  <span className="text-slate-900">{clinic.email}</span>
+                </span>
+              )}
+              {cleanWebsite && (
+                <span>
+                  <a
+                    href={cleanWebsite.startsWith('http') ? cleanWebsite : `https://${cleanWebsite}`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-blue-700 underline font-medium hover:text-blue-900"
+                  >
+                    {cleanWebsite}
+                  </a>
+                </span>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Row 2: Clinic License Number - Centered */}
-        {clinic.licenseNo && (
-          <div className="text-center text-[11.5px] mt-0.5 font-bold text-slate-950">
-            <span>ใบอนุญาตสถานพยาบาลประเภทที่ไม่รับผู้ป่วยไว้ค้างคืนเลขที่ </span>
-            <span className="font-bold">{clinic.licenseNo}</span>
+        {/* Right Section: ใบเสนอราคา (Blue) / QUOTATION / Box with เลขที่ & วันที่ */}
+        {showDocMeta && (
+          <div className="flex-shrink-0 text-right min-w-[240px] pt-0.5 font-sans">
+            <div className="text-[23px] sm:text-[25px] font-bold text-blue-700 tracking-tight leading-none">
+              ใบเสนอราคา
+            </div>
+            <div className="text-[11px] font-bold text-slate-500 tracking-[0.22em] uppercase mt-1 mb-2">
+              QUOTATION
+            </div>
+            {/* Box with เลขที่เอกสาร / No: and วันที่ / Date: as shown in example image 2 */}
+            <div className="rounded-xl border border-slate-300 bg-slate-50/70 p-2.5 px-3 text-left text-[12px] shadow-2xs space-y-1">
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-slate-600 font-medium">เลขที่เอกสาร / No:</span>
+                <span className="font-bold text-slate-950 font-mono tracking-tight text-[12.5px]">
+                  {documentNo || '-'}
+                </span>
+              </div>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-slate-600 font-medium">วันที่ / Date:</span>
+                <span className="font-semibold text-slate-900">
+                  {dateText || '-'}
+                </span>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* Row 3: Address - Centered */}
-        {clinic.address && (
-          <div className="text-center text-[11.5px] mt-0.5 font-bold text-slate-950">
-            {clinic.address}
+        {/* Compact Right Section on Continuation Pages */}
+        {!showDocMeta && compact && documentNo && (
+          <div className="flex-shrink-0 text-right font-sans text-[11.5px] text-slate-700 pt-1">
+            <div className="text-[13px] font-bold text-blue-700 leading-tight">
+              ใบเสนอราคา <span className="text-[10.5px] font-semibold text-slate-500 tracking-wider">QUOTATION</span>
+            </div>
+            <div className="text-[11px] text-slate-700 font-medium mt-0.5">
+              เลขที่เอกสาร / No: <span className="font-bold font-mono text-slate-950">{documentNo}</span>
+            </div>
           </div>
         )}
-
-        {/* Row 4: Phone, Email, Website - Centered */}
-        <div className="text-center text-[11.5px] mt-0.5 font-bold flex flex-wrap justify-center items-center gap-x-4 gap-y-0.5 text-slate-950">
-          {clinic.phone && (
-            <span>
-              <span>โทรศัพท์</span> {clinic.phone}
-            </span>
-          )}
-          {clinic.email && (
-            <span>
-              <span>E-mail :</span>{' '}
-              <a href={`mailto:${clinic.email}`} className="text-slate-950 hover:underline">
-                {clinic.email}
-              </a>
-            </span>
-          )}
-          {clinic.website && (
-            <a
-              href={clinic.website.startsWith('http') ? clinic.website : `https://${clinic.website}`}
-              target="_blank"
-              rel="noreferrer"
-              className="text-blue-700 font-bold underline hover:text-blue-900"
-            >
-              {clinic.website}
-            </a>
-          )}
-        </div>
       </div>
     </div>
   );
