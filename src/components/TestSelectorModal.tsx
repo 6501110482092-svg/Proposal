@@ -208,7 +208,7 @@ export const TestSelectorModal: React.FC<TestSelectorModalProps> = ({
                   </div>
                   <div>
                     <div className="font-semibold text-sm flex items-center gap-2">
-                      <span>{test.name}</span>
+                      <span className="whitespace-pre-line">{test.name}</span>
                       {isAlreadyIn && (
                         <span className="text-[10px] bg-amber-100 text-amber-800 font-medium px-1.5 py-0.2 rounded">
                           มีในตารางแล้ว

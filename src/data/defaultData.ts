@@ -100,7 +100,7 @@ export const DEFAULT_MASTER_TESTS: MasterTest[] = [
   {
     id: 'test-pe',
     code: 'PE01',
-    name: 'ตรวจสุขภาพทั่วไปโดยแพทย์ (Physical Examination)',
+    name: 'ตรวจสุขภาพทั่วไปโดยแพทย์\n(Physical Examination)',
     category: 'ตรวจร่างกายทั่วไป',
     defaultPricingType: 'fixed',
     flatRateLabel: 'เหมาจ่าย 4,500 บาท',
@@ -818,7 +818,7 @@ export const INITIAL_PROPOSALS: ProposalDocument[] = [
             id: 'item-almit-1',
             testId: 'test-pe',
             orderNumber: 1,
-            name: 'ตรวจสุขภาพทั่วไปโดยแพทย์ (Physical Examination)',
+            name: 'ตรวจสุขภาพทั่วไปโดยแพทย์\n(Physical Examination)',
             pricingType: 'fixed',
             flatRateLabel: 'เหมาจ่าย 4,500 บาท',
             unitPrice: 4500,

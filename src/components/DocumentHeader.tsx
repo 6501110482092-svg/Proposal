@@ -30,62 +30,62 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
   return (
     <div
       className={`w-full border-b-2 border-blue-600 select-none ${
-        compact ? 'pb-2 mb-3' : 'pb-3 mb-4'
+        compact ? 'pb-1.5 mb-2.5' : 'pb-2 mb-3'
       }`}
     >
-      <div className="flex items-start justify-between gap-4">
-        {/* Left Section: Logo + 1 Tab Spacing + Clinic Details */}
-        <div className="flex items-start gap-5 flex-1 min-w-0">
+      <div className="flex items-start justify-between gap-3">
+        {/* Left Section: Logo + Spacing + Clinic Details (1 line each) */}
+        <div className="flex items-start gap-3.5 flex-1 min-w-0 pr-1">
           {/* Logo on the left */}
           <div className="flex-shrink-0 pt-0.5">
             <ClinicLogo
               logoUrl={clinic.logoUrl}
               clinicId={clinic.id}
-              className={compact ? 'w-16 h-13' : 'w-20 h-16'}
+              className={compact ? 'w-14 h-12' : 'w-16 h-14'}
             />
           </div>
 
-          {/* Clinic Details (Left aligned, with clear 1-tab indent from logo, all lines uniform size) */}
-          <div className="flex-1 min-w-0 text-left font-sans pl-1">
-            {/* Line 1: Clinic Name (Same font size as Line 2, bold) */}
-            <h1 className="text-[12.5px] font-bold text-slate-950 leading-normal">
+          {/* Clinic Details (Left aligned, each item strictly on its own line) */}
+          <div className="flex-1 min-w-0 text-left font-sans">
+            {/* Line 1: Clinic Name (Bold, 12px) */}
+            <h1 className="text-[12px] font-bold text-slate-950 leading-tight whitespace-nowrap">
               {clinic.name}
             </h1>
 
-            {/* Line 2: English Name (Same font size as Line 1 and details, medium uppercase) */}
+            {/* Line 2: English Name (Medium, 11px, uppercase) */}
             {clinic.englishName && (
-              <div className="text-[12.5px] text-slate-700 font-medium leading-normal tracking-wide uppercase mt-0.5">
+              <div className="text-[11px] text-slate-700 font-medium leading-tight tracking-wide uppercase mt-0.5 whitespace-nowrap">
                 {clinic.englishName}
               </div>
             )}
 
-            {/* Line 3: Address (without สำนักงานใหญ่, same font size) */}
+            {/* Line 3: Address (11px, single line) */}
             {cleanAddress && (
-              <div className="text-[12.5px] text-slate-800 leading-normal font-normal mt-0.5">
+              <div className="text-[11px] text-slate-800 leading-tight font-normal mt-0.5 whitespace-nowrap">
                 {cleanAddress}
               </div>
             )}
 
-            {/* Line 4: Phone & Tax ID on the same line, same font size */}
-            <div className="text-[12.5px] text-slate-800 leading-normal font-normal mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-0.5">
+            {/* Line 4: Phone & Tax ID on the same single line */}
+            <div className="text-[11px] text-slate-800 leading-tight font-normal mt-0.5 flex items-center gap-x-4 whitespace-nowrap">
               {clinic.phone && (
                 <span>
-                  <span className="font-semibold text-slate-950">โทรศัพท์:</span> {clinic.phone}
+                  <span className="font-normal text-slate-800">โทรศัพท์:</span> {clinic.phone}
                 </span>
               )}
               {clinic.taxId && (
                 <span>
-                  <span className="font-semibold text-slate-950">เลขประจำตัวผู้เสียภาษี:</span> {clinic.taxId}
+                  <span className="font-normal text-slate-800">เลขประจำตัวผู้เสียภาษี:</span> {clinic.taxId}
                 </span>
               )}
             </div>
 
-            {/* Line 5: Email (English) & Website (no prefix) on the same line, same font size */}
-            <div className="text-[12.5px] text-slate-800 leading-normal font-normal mt-0.5 flex flex-wrap items-center gap-x-5 gap-y-0.5">
+            {/* Line 5: Email (English) & Website (no prefix) on the same single line */}
+            <div className="text-[11px] text-slate-800 leading-tight font-normal mt-0.5 flex items-center gap-x-4 whitespace-nowrap">
               {clinic.email && (
                 <span>
-                  <span className="font-semibold text-slate-950">Email:</span>{' '}
-                  <span className="text-slate-900">{clinic.email}</span>
+                  <span className="font-normal text-slate-800">Email:</span>{' '}
+                  <span className="text-slate-800">{clinic.email}</span>
                 </span>
               )}
               {cleanWebsite && (
@@ -104,26 +104,26 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Section: ใบเสนอราคา (Blue) / QUOTATION / Box with เลขที่ & วันที่ */}
+        {/* Right Section: Compact ใบเสนอราคา (Blue) / QUOTATION / Small Box with เลขที่ & วันที่ */}
         {showDocMeta && (
-          <div className="flex-shrink-0 text-right min-w-[240px] pt-0.5 font-sans">
-            <div className="text-[23px] sm:text-[25px] font-bold text-blue-700 tracking-tight leading-none">
+          <div className="flex-shrink-0 text-right min-w-[165px] pt-0.5 font-sans">
+            <div className="text-[20px] font-bold text-blue-700 tracking-tight leading-none">
               ใบเสนอราคา
             </div>
-            <div className="text-[11px] font-bold text-slate-500 tracking-[0.22em] uppercase mt-1 mb-2">
+            <div className="text-[9.5px] font-bold text-slate-500 tracking-[0.2em] uppercase mt-0.5 mb-1.5">
               QUOTATION
             </div>
-            {/* Box with เลขที่เอกสาร / No: and วันที่ / Date: as shown in example image 2 */}
-            <div className="rounded-xl border border-slate-300 bg-slate-50/70 p-2.5 px-3 text-left text-[12px] shadow-2xs space-y-1">
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-slate-600 font-medium">เลขที่เอกสาร / No:</span>
-                <span className="font-bold text-slate-950 font-mono tracking-tight text-[12.5px]">
+            {/* Compact Box: removed NO and Date labels per user request */}
+            <div className="rounded-lg border border-slate-300 bg-slate-50/70 py-1.5 px-2.5 text-left text-[11.5px] shadow-2xs space-y-0.5">
+              <div className="flex items-center justify-between gap-2.5">
+                <span className="text-slate-600 font-medium whitespace-nowrap">เลขที่:</span>
+                <span className="font-bold text-slate-950 font-mono text-[12px] whitespace-nowrap">
                   {documentNo || '-'}
                 </span>
               </div>
-              <div className="flex items-center justify-between gap-3">
-                <span className="text-slate-600 font-medium">วันที่ / Date:</span>
-                <span className="font-semibold text-slate-900">
+              <div className="flex items-center justify-between gap-2.5">
+                <span className="text-slate-600 font-medium whitespace-nowrap">วันที่:</span>
+                <span className="font-semibold text-slate-900 text-[11.5px] whitespace-nowrap">
                   {dateText || '-'}
                 </span>
               </div>
@@ -133,12 +133,12 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
 
         {/* Compact Right Section on Continuation Pages */}
         {!showDocMeta && compact && documentNo && (
-          <div className="flex-shrink-0 text-right font-sans text-[11.5px] text-slate-700 pt-1">
-            <div className="text-[13px] font-bold text-blue-700 leading-tight">
-              ใบเสนอราคา <span className="text-[10.5px] font-semibold text-slate-500 tracking-wider">QUOTATION</span>
+          <div className="flex-shrink-0 text-right font-sans text-[11px] text-slate-700 pt-0.5">
+            <div className="text-[12px] font-bold text-blue-700 leading-tight">
+              ใบเสนอราคา <span className="text-[9.5px] font-semibold text-slate-500 tracking-wider">QUOTATION</span>
             </div>
-            <div className="text-[11px] text-slate-700 font-medium mt-0.5">
-              เลขที่เอกสาร / No: <span className="font-bold font-mono text-slate-950">{documentNo}</span>
+            <div className="text-[10.5px] text-slate-700 font-medium mt-0.5">
+              เลขที่: <span className="font-bold font-mono text-slate-950">{documentNo}</span>
             </div>
           </div>
         )}

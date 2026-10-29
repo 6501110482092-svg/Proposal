@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { MasterTest, PriceTier } from '../types';
 import { DEFAULT_PRICE_TIERS } from '../data/defaultData';
 import {
@@ -11,7 +11,16 @@ import {
   X,
   Sliders,
   CheckCircle2,
+  CornerDownLeft,
+  ArrowRightToLine,
+  Bold,
 } from 'lucide-react';
+import {
+  insertBoldMarkdown,
+  insertNewline,
+  insertTabIndent,
+  renderFormattedThaiText,
+} from '../utils/richText';
 
 interface MasterCatalogModalProps {
   isOpen: boolean;
@@ -51,6 +60,7 @@ export const MasterCatalogModal: React.FC<MasterCatalogModalProps> = ({
 
   // Editing single test modal/form
   const [editingTest, setEditingTest] = useState<MasterTest | null>(null);
+  const testNameRef = useRef<HTMLTextAreaElement>(null);
 
   // State for inline delete confirmation to prevent accidental deletion and avoid window.confirm blockers
   const [testToDeleteId, setTestToDeleteId] = useState<string | null>(null);
@@ -321,10 +331,10 @@ export const MasterCatalogModal: React.FC<MasterCatalogModalProps> = ({
                           <td className="py-2 px-3 font-mono text-xs text-slate-500">
                             {test.code || '-'}
                           </td>
-                          <td className="py-2 px-3 font-medium text-slate-900">
-                            {test.name || 'ไม่ระบุชื่อ'}
+                          <td className="py-2 px-3 font-medium text-slate-900 whitespace-pre-wrap leading-snug">
+                            {renderFormattedThaiText(test.name) || 'ไม่ระบุชื่อ'}
                             {test.flatRateLabel && test.defaultPricingType === 'fixed' && (
-                              <span className="block text-xs text-amber-700 font-semibold">
+                              <span className="block text-xs text-amber-700 font-semibold mt-0.5">
                                 {test.flatRateLabel}
                               </span>
                             )}
@@ -431,13 +441,96 @@ export const MasterCatalogModal: React.FC<MasterCatalogModalProps> = ({
               </div>
 
               <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">ชื่อรายการตรวจ *</label>
-                <input
-                  type="text"
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="block text-xs font-bold text-slate-700">
+                    ชื่อรายการตรวจ * (ขึ้นบรรทัดใหม่ / จัดย่อหน้าได้)
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (testNameRef.current) {
+                          insertNewline(testNameRef.current, editingTest.name || '', val =>
+                            setEditingTest({ ...editingTest, name: val })
+                          );
+                        } else {
+                          setEditingTest({
+                            ...editingTest,
+                            name: (editingTest.name || '') + '\n',
+                          });
+                        }
+                      }}
+                      className="px-2 py-0.5 text-xs text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 rounded-md border border-sky-200 font-bold transition flex items-center gap-1 cursor-pointer"
+                      title="ขึ้นบรรทัดใหม่ [↵]"
+                    >
+                      <CornerDownLeft className="w-3.5 h-3.5 text-sky-600" />
+                      <span>↵ ขึ้นบรรทัดใหม่</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (testNameRef.current) {
+                          insertTabIndent(testNameRef.current, editingTest.name || '', val =>
+                            setEditingTest({ ...editingTest, name: val })
+                          );
+                        } else {
+                          setEditingTest({
+                            ...editingTest,
+                            name: (editingTest.name || '') + '    ',
+                          });
+                        }
+                      }}
+                      className="px-2 py-0.5 text-xs text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 rounded-md border border-indigo-200 font-bold transition flex items-center gap-1 cursor-pointer"
+                      title="ย่อหน้า [Tab]"
+                    >
+                      <ArrowRightToLine className="w-3.5 h-3.5 text-indigo-600" />
+                      <span>⇥ ย่อหน้า</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (testNameRef.current) {
+                          insertBoldMarkdown(testNameRef.current, editingTest.name || '', val =>
+                            setEditingTest({ ...editingTest, name: val })
+                          );
+                        } else {
+                          const val = editingTest.name || '';
+                          const newName =
+                            val.startsWith('**') && val.endsWith('**')
+                              ? val.slice(2, -2)
+                              : `**${val}**`;
+                          setEditingTest({ ...editingTest, name: newName });
+                        }
+                      }}
+                      className="px-2 py-0.5 text-xs text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 rounded-md border border-slate-300 font-bold transition flex items-center gap-1 cursor-pointer"
+                      title="ทำตัวหนา [B]"
+                    >
+                      <Bold className="w-3.5 h-3.5" />
+                      <span>ตัวหนา</span>
+                    </button>
+                  </div>
+                </div>
+                <textarea
+                  ref={testNameRef}
+                  rows={3}
                   value={editingTest.name || ''}
                   onChange={e => setEditingTest({ ...editingTest, name: e.target.value })}
-                  className="w-full text-sm border border-slate-300 rounded-lg px-3 py-2 outline-hidden"
+                  onKeyDown={e => {
+                    if (e.key === 'Tab') {
+                      e.preventDefault();
+                      if (testNameRef.current) {
+                        insertTabIndent(testNameRef.current, editingTest.name || '', val =>
+                          setEditingTest({ ...editingTest, name: val })
+                        );
+                      }
+                    }
+                  }}
+                  placeholder="เช่น ตรวจสุขภาพทั่วไปโดยแพทย์&#10;(Physical Examination)"
+                  className="w-full text-sm border border-slate-300 rounded-xl px-3 py-2 outline-hidden focus:ring-2 focus:ring-emerald-500 font-medium leading-snug"
                 />
+                <span className="text-[11px] text-slate-500 mt-1 block">
+                  สามารถกดปุ่ม <strong className="text-sky-700 font-semibold">[↵ ขึ้นบรรทัดใหม่]</strong> หรือกด Enter เพื่อตัดบรรทัดชื่อรายการตรวจที่ยาวได้ตามความสวยงาม
+                </span>
               </div>
 
               <div className="grid grid-cols-2 gap-3">

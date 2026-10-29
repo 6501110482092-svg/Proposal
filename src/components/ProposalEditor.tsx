@@ -1014,19 +1014,55 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                   </div>
 
                   {/* Tier status indicator */}
-                  <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 bg-emerald-50/70 border border-emerald-200 rounded-xl px-3 py-1.5">
+                  <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 bg-emerald-50/70 border border-emerald-200 rounded-xl px-3 py-1.5 gap-2">
                     <span className="flex items-center gap-1.5">
                       <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
                       ช่วงราคาที่ตรงกับ {prog.defaultHeadcount} คน:{' '}
                       <strong className="text-emerald-950 font-bold">{activeTier.name}</strong>
                     </span>
-                    <button
-                      type="button"
-                      onClick={onOpenMasterCatalog}
-                      className="text-emerald-700 hover:text-emerald-900 underline font-medium"
-                    >
-                      ดู/แก้ไข 4 ช่วงราคา
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const testMap = new Map<string, MasterTest>();
+                          masterTests.forEach(t => testMap.set(t.id, t));
+                          const updatedItems = prog.items.map(item => {
+                            let matched = item.testId ? testMap.get(item.testId) : undefined;
+                            if (!matched) {
+                              const norm = (item.name || '').replace(/[\r\n\s]+/g, ' ').trim();
+                              matched = masterTests.find(
+                                t => (t.name || '').replace(/[\r\n\s]+/g, ' ').trim() === norm
+                              );
+                            }
+                            if (matched && matched.name) {
+                              return {
+                                ...item,
+                                testId: matched.id,
+                                name: matched.name,
+                                flatRateLabel: matched.flatRateLabel || item.flatRateLabel,
+                              };
+                            }
+                            return item;
+                          });
+                          const updated = proposal.programs.map(p =>
+                            p.id === prog.id ? { ...p, items: updatedItems } : p
+                          );
+                          onChange({ ...proposal, programs: updated });
+                        }}
+                        className="text-sky-700 hover:text-sky-900 text-xs font-semibold bg-white hover:bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-300 flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                        title="อัปเดตชื่อรายการตรวจและการจัดบรรทัดตามที่แก้ไขไว้ในคลัง"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5 text-sky-600" />
+                        ซิงค์ชื่อรายการตรวจจากคลัง
+                      </button>
+                      <button
+                        type="button"
+                        onClick={onOpenMasterCatalog}
+                        className="text-emerald-700 hover:text-emerald-900 underline font-medium"
+                      >
+                        ดู/แก้ไข 4 ช่วงราคา
+                      </button>
+                    </div>
                   </div>
 
                   {/* Customizable Column Headers Row */}
@@ -1116,7 +1152,13 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      const newName = (item.name || '') + '\n';
+                                      const current = item.name || '';
+                                      let newName: string;
+                                      if (!current.includes('\n') && current.includes(' (')) {
+                                        newName = current.replace(' (', '\n(');
+                                      } else {
+                                        newName = current + '\n';
+                                      }
                                       handleUpdateItem(prog.id, item.id, { name: newName });
                                     }}
                                     className="text-[10px] text-sky-700 hover:text-sky-900 bg-sky-50 px-1.5 py-0.2 rounded border border-sky-200 font-bold transition cursor-pointer"

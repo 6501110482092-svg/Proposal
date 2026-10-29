@@ -181,6 +181,55 @@ export default function App() {
     savePersistentItem(STORAGE_KEY_ACTIVE_ID, activeProposalId);
   }, [activeProposalId]);
 
+  // Reactive auto-sync: Whenever masterTests changes or loads, propagate updated test names & newlines into proposals
+  useEffect(() => {
+    if (!Array.isArray(masterTests) || masterTests.length === 0) return;
+    if (!Array.isArray(proposals) || proposals.length === 0) return;
+
+    const testMap = new Map<string, MasterTest>();
+    masterTests.forEach(t => testMap.set(t.id, t));
+
+    let anyProposalChanged = false;
+    const syncedProposals = proposals.map(prop => {
+      let proposalChanged = false;
+      const newPrograms = prop.programs.map(prog => {
+        const newItems = prog.items.map(item => {
+          let matchedTest: MasterTest | undefined;
+          if (item.testId && testMap.has(item.testId)) {
+            matchedTest = testMap.get(item.testId);
+          } else {
+            const normItem = (item.name || '').replace(/[\r\n\s]+/g, ' ').trim();
+            matchedTest = masterTests.find(
+              t => (t.name || '').replace(/[\r\n\s]+/g, ' ').trim() === normItem
+            );
+          }
+
+          if (matchedTest && matchedTest.name && matchedTest.name !== item.name) {
+            proposalChanged = true;
+            return {
+              ...item,
+              testId: matchedTest.id,
+              name: matchedTest.name,
+              flatRateLabel: matchedTest.flatRateLabel || item.flatRateLabel,
+            };
+          }
+          return item;
+        });
+        return { ...prog, items: newItems };
+      });
+
+      if (proposalChanged) {
+        anyProposalChanged = true;
+        return { ...prop, programs: newPrograms };
+      }
+      return prop;
+    });
+
+    if (anyProposalChanged) {
+      setProposals(syncedProposals);
+    }
+  }, [masterTests]);
+
   // Explicit manual save handler
   const handleManualSave = async () => {
     setSaveStatus('saving');
@@ -219,6 +268,50 @@ export default function App() {
     setProposals(prev =>
       prev.map(p => (p.id === updated.id ? { ...updated, updatedAt: new Date().toISOString() } : p))
     );
+  };
+
+  // Save master tests and sync formatted names & newlines into proposals
+  const handleSaveMasterTests = (updatedTests: MasterTest[]) => {
+    setMasterTests(updatedTests);
+
+    setProposals(prevProposals => {
+      const testMap = new Map<string, MasterTest>();
+      updatedTests.forEach(t => testMap.set(t.id, t));
+
+      return prevProposals.map(prop => {
+        let proposalChanged = false;
+        const newPrograms = prop.programs.map(prog => {
+          const newItems = prog.items.map(item => {
+            let matchedTest: MasterTest | undefined;
+            if (item.testId && testMap.has(item.testId)) {
+              matchedTest = testMap.get(item.testId);
+            } else {
+              const normItem = (item.name || '').replace(/[\r\n\s]+/g, ' ').trim();
+              matchedTest = updatedTests.find(
+                t => (t.name || '').replace(/[\r\n\s]+/g, ' ').trim() === normItem
+              );
+            }
+
+            if (matchedTest && matchedTest.name && matchedTest.name !== item.name) {
+              proposalChanged = true;
+              return {
+                ...item,
+                testId: matchedTest.id,
+                name: matchedTest.name,
+                flatRateLabel: matchedTest.flatRateLabel || item.flatRateLabel,
+              };
+            }
+            return item;
+          });
+          return { ...prog, items: newItems };
+        });
+
+        if (proposalChanged) {
+          return { ...prop, programs: newPrograms, updatedAt: new Date().toISOString() };
+        }
+        return prop;
+      });
+    });
   };
 
   // Update proposal status
@@ -599,7 +692,7 @@ export default function App() {
             tiers={tiers}
             onSaveTiers={setTiers}
             tests={masterTests}
-            onSaveTests={setMasterTests}
+            onSaveTests={handleSaveMasterTests}
           />
         </ErrorBoundary>
 
