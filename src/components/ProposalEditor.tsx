@@ -696,7 +696,12 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                     onChange({
                       ...proposal,
                       docType: 'amendment',
-                      amendmentDocTitle: proposal.amendmentDocTitle || 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ',
+                      amendmentDocTitle: proposal.amendmentDocTitle && proposal.amendmentDocTitle !== 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ'
+                        ? proposal.amendmentDocTitle
+                        : 'ใบเสนอราคา',
+                      subject: proposal.subject.includes('ปรับปรุง')
+                        ? proposal.subject
+                        : 'ขอปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ ประจำปี 2569',
                       programs: updatedPrograms,
                     });
                   }}
@@ -726,31 +731,64 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
               {/* Amendment Options Sub-panel */}
               {proposal.docType === 'amendment' && (
                 <div className="mt-2.5 p-3 bg-purple-50/80 border border-purple-200 rounded-xl space-y-2">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                    <span className="text-xs font-bold text-purple-900">
-                      หัวเรื่องเอกสารปรับปรุงสัญญา:
-                    </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                    <div>
+                      <span className="text-xs font-bold text-purple-950">
+                        คำหัวเอกสารมุมขวาบน (Document Header Stamp):
+                      </span>
+                      <p className="text-[11px] text-purple-800">
+                        แนะนำใช้คำเดิมว่า <strong>"ใบเสนอราคา"</strong> เพื่อให้หัวกระดาษสะอาดตา ไม่เบียดทับที่อยู่ ส่วนรายละเอียดจะอยู่ในช่อง <strong>"เรื่อง"</strong> ด้านล่าง
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Preset quick buttons */}
+                  <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                     <button
                       type="button"
-                      onClick={() =>
-                        onChange({
-                          ...proposal,
-                          subject: 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ ประจำปี 2569',
-                          amendmentDocTitle: 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ',
-                        })
-                      }
-                      className="text-[11px] text-purple-700 hover:text-purple-900 bg-white border border-purple-300 px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                      onClick={() => onChange({ ...proposal, amendmentDocTitle: 'ใบเสนอราคา' })}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg font-bold border transition cursor-pointer ${
+                        !proposal.amendmentDocTitle || proposal.amendmentDocTitle === 'ใบเสนอราคา' || proposal.amendmentDocTitle === 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ'
+                          ? 'bg-purple-700 text-white border-purple-700 shadow-2xs'
+                          : 'bg-white text-purple-800 border-purple-300 hover:bg-purple-100'
+                      }`}
                     >
-                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
-                      <span>ตั้งชื่อเรื่องมาตรฐานสำหรับปรับปรุงสัญญา</span>
+                      ✓ ใบเสนอราคา (คำเดิม - แนะนำ)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...proposal, amendmentDocTitle: 'ใบปรับปรุงสัญญา' })}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg font-bold border transition cursor-pointer ${
+                        proposal.amendmentDocTitle === 'ใบปรับปรุงสัญญา'
+                          ? 'bg-purple-700 text-white border-purple-700 shadow-2xs'
+                          : 'bg-white text-purple-800 border-purple-300 hover:bg-purple-100'
+                      }`}
+                    >
+                      ใบปรับปรุงสัญญา
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => onChange({ ...proposal, amendmentDocTitle: 'ใบเสนอราคา (ฉบับปรับปรุง)' })}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg font-bold border transition cursor-pointer ${
+                        proposal.amendmentDocTitle === 'ใบเสนอราคา (ฉบับปรับปรุง)'
+                          ? 'bg-purple-700 text-white border-purple-700 shadow-2xs'
+                          : 'bg-white text-purple-800 border-purple-300 hover:bg-purple-100'
+                      }`}
+                    >
+                      ใบเสนอราคา (ฉบับปรับปรุง)
                     </button>
                   </div>
+
                   <input
                     type="text"
-                    value={proposal.amendmentDocTitle || 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ'}
+                    value={
+                      proposal.amendmentDocTitle === 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ'
+                        ? 'ใบเสนอราคา'
+                        : (proposal.amendmentDocTitle || 'ใบเสนอราคา')
+                    }
                     onChange={e => onChange({ ...proposal, amendmentDocTitle: e.target.value })}
                     className="w-full text-xs border border-purple-300 rounded-lg px-2.5 py-1.5 font-bold text-purple-950 bg-white"
-                    placeholder="ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ"
+                    placeholder="ใบเสนอราคา"
                   />
                 </div>
               )}

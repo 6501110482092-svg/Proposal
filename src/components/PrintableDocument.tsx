@@ -455,12 +455,22 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
         <div style={bodyStyle}>
           {/* If official header style is chosen, render Document No & Date on the same line right above Subject */}
           {proposal.headerStyle === 'official' && (
-            <div className="flex items-center justify-between text-[13.5px] font-medium text-slate-900 mb-3 pt-0.5 pb-1 border-b border-slate-200">
-              <div>
-                <span className="font-bold">เลขที่:</span> <span className="font-mono font-bold text-slate-950">{proposal.documentNo || '-'}</span>
+            <div className="flex items-baseline mb-2.5 text-[14px]">
+              <div className="flex items-baseline gap-2" style={{ paddingLeft: '58px' }}>
+                <span className="font-bold whitespace-nowrap" style={{ color: resolvedBoldColor }}>
+                  เลขที่:
+                </span>
+                <span className="font-normal">
+                  {proposal.documentNo || '-'}
+                </span>
               </div>
-              <div>
-                <span className="font-bold">วันที่:</span> <span className="font-semibold text-slate-900">{proposal.dateText || '-'}</span>
+              <div className="ml-auto pr-16 sm:pr-20 flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap" style={{ color: resolvedBoldColor }}>
+                  วันที่:
+                </span>
+                <span className="font-normal">
+                  {proposal.dateText || '-'}
+                </span>
               </div>
             </div>
           )}
@@ -527,9 +537,23 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
           />
 
           {proposal.headerStyle === 'official' && (
-            <div className="flex items-center justify-between text-[12px] font-medium text-slate-600 mb-2 pt-0.5 border-b border-slate-200">
-              <div>เลขที่: <span className="font-mono font-bold text-slate-800">{proposal.documentNo || '-'}</span></div>
-              <div>วันที่: {proposal.dateText || '-'}</div>
+            <div className="flex items-baseline mb-2.5 text-[13px]" style={bodyStyle}>
+              <div className="flex items-baseline gap-2" style={{ paddingLeft: '58px' }}>
+                <span className="font-bold whitespace-nowrap" style={{ color: resolvedBoldColor }}>
+                  เลขที่:
+                </span>
+                <span className="font-normal">
+                  {proposal.documentNo || '-'}
+                </span>
+              </div>
+              <div className="ml-auto pr-16 sm:pr-20 flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap" style={{ color: resolvedBoldColor }}>
+                  วันที่:
+                </span>
+                <span className="font-normal">
+                  {proposal.dateText || '-'}
+                </span>
+              </div>
             </div>
           )}
 
@@ -570,9 +594,23 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
           />
 
           {proposal.headerStyle === 'official' && (
-            <div className="flex items-center justify-between text-[12px] font-medium text-slate-600 mb-2 pt-0.5 border-b border-slate-200">
-              <div>เลขที่: <span className="font-mono font-bold text-slate-800">{proposal.documentNo || '-'}</span></div>
-              <div>วันที่: {proposal.dateText || '-'}</div>
+            <div className="flex items-baseline mb-2.5 text-[13px]" style={bodyStyle}>
+              <div className="flex items-baseline gap-2" style={{ paddingLeft: '58px' }}>
+                <span className="font-bold whitespace-nowrap" style={{ color: resolvedBoldColor }}>
+                  เลขที่:
+                </span>
+                <span className="font-normal">
+                  {proposal.documentNo || '-'}
+                </span>
+              </div>
+              <div className="ml-auto pr-16 sm:pr-20 flex items-baseline gap-2">
+                <span className="font-bold whitespace-nowrap" style={{ color: resolvedBoldColor }}>
+                  วันที่:
+                </span>
+                <span className="font-normal">
+                  {proposal.dateText || '-'}
+                </span>
+              </div>
             </div>
           )}
 

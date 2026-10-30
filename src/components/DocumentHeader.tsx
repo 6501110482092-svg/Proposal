@@ -34,11 +34,19 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
     .trim();
 
   const isAmendment = docType === 'amendment';
-  const mainTitle = isAmendment
-    ? (amendmentDocTitle || 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ')
+  // User requested using 'ใบเสนอราคา' (QUOTATION) as default header stamp so it doesn't wrap or collide with clinic details
+  const resolvedDocTitle = (amendmentDocTitle && amendmentDocTitle !== 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ')
+    ? amendmentDocTitle
     : 'ใบเสนอราคา';
-  const subTitle = isAmendment ? 'CONTRACT AMENDMENT' : 'QUOTATION';
 
+  const mainTitle = isAmendment ? resolvedDocTitle : 'ใบเสนอราคา';
+  const subTitle = mainTitle === 'ใบเสนอราคา'
+    ? 'QUOTATION'
+    : (mainTitle.includes('สัญญา') || mainTitle.toLowerCase().includes('amendment'))
+    ? 'CONTRACT AMENDMENT'
+    : 'REVISED QUOTATION';
+
+  const isLongTitle = mainTitle.length > 16;
   const isOfficial = headerStyle === 'official';
 
   return (
@@ -121,10 +129,10 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
         {/* Right Section: Minimal Header Style (with Box) */}
         {!isOfficial && showDocMeta && (
           <div className="flex-shrink-0 text-right min-w-[165px] max-w-[240px] pt-0.5 font-sans">
-            <div className={`font-bold text-blue-700 tracking-tight leading-snug ${isAmendment ? 'text-[14px]' : 'text-[20px]'}`}>
+            <div className={`font-bold text-blue-700 tracking-tight leading-snug whitespace-nowrap ${isLongTitle ? 'text-[14px]' : 'text-[20px]'}`}>
               {mainTitle}
             </div>
-            <div className="text-[9.5px] font-bold text-slate-500 tracking-[0.2em] uppercase mt-0.5 mb-1.5">
+            <div className="text-[9.5px] font-bold text-slate-500 tracking-[0.2em] uppercase mt-0.5 mb-1.5 whitespace-nowrap">
               {subTitle}
             </div>
             {/* Compact Box */}
@@ -148,10 +156,10 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
         {/* Right Section: Official Header Style (Clean without box, title only) */}
         {isOfficial && (
           <div className="flex-shrink-0 text-right min-w-[160px] pt-1 font-sans">
-            <div className={`font-bold text-blue-700 tracking-tight leading-snug ${isAmendment ? 'text-[14px]' : 'text-[22px]'}`}>
+            <div className={`font-bold text-blue-700 tracking-tight leading-snug whitespace-nowrap ${isLongTitle ? 'text-[15px]' : 'text-[22px]'}`}>
               {mainTitle}
             </div>
-            <div className="text-[10px] font-bold text-slate-500 tracking-[0.2em] uppercase mt-0.5">
+            <div className="text-[10px] font-bold text-slate-500 tracking-[0.2em] uppercase mt-0.5 whitespace-nowrap">
               {subTitle}
             </div>
           </div>

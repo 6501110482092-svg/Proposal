@@ -414,11 +414,11 @@ export default function App() {
       ...JSON.parse(JSON.stringify(sourceProposal)),
       id: newId,
       docType: 'amendment',
-      amendmentDocTitle: 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ',
+      amendmentDocTitle: 'ใบเสนอราคา',
       title: `[ใบปรับปรุงสัญญา] ${sourceProposal.title || sourceProposal.documentNo}`,
       documentNo: `${sourceProposal.documentNo || 'QT'}-AMD`,
       dateText: getTodayThaiDate('standard'),
-      subject: `ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ ประจำปี 2569`,
+      subject: `ขอปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ ประจำปี 2569`,
       programs: sourceProposal.programs.map(prog => ({
         ...prog,
         colOriginalPriceLabel: 'ใบเสนอราคาเดิม',
