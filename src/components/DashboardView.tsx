@@ -45,6 +45,7 @@ interface DashboardViewProps {
   onOpenMasterCatalog: () => void;
   onExportData: () => void;
   onImportData: (jsonData: string) => void;
+  onCreateAmendment?: (proposal: ProposalDocument) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -62,6 +63,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenMasterCatalog,
   onExportData,
   onImportData,
+  onCreateAmendment,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -203,14 +205,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             >
               <Plus className="w-5 h-5" /> สร้างใบเสนอราคาใหม่ {activeClinicInfo ? `(${activeClinicInfo.shortName})` : ''}
             </button>
-            {activeDoc && (
-              <button
-                onClick={() => onOpenEditor(activeDoc.id)}
-                className="bg-slate-800/90 hover:bg-slate-700 text-white font-semibold text-sm px-4 py-3 rounded-2xl border border-slate-700 flex items-center gap-2 transition cursor-pointer"
-              >
-                <Edit3 className="w-4 h-4 text-sky-400" /> ทำต่อใบปัจจุบัน ({activeDoc.title || 'เอกสาร'})
-              </button>
-            )}
           </div>
         </div>
       </div>
@@ -623,8 +617,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                       {/* Client / Title */}
                       <td className="py-3 px-4">
-                        <div className="font-bold text-slate-900 text-sm whitespace-pre-line">
-                          {clientName ? `บริษัท ${clientName} จำกัด` : p.attention || 'ยังไม่ระบุบริษัท'}
+                        <div className="font-bold text-slate-900 text-sm whitespace-pre-line flex items-center gap-1.5">
+                          <span>{clientName ? `บริษัท ${clientName} จำกัด` : p.attention || 'ยังไม่ระบุบริษัท'}</span>
+                          {p.docType === 'amendment' && (
+                            <span className="text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300 px-1.5 py-0.2 rounded-md">
+                              ใบปรับปรุงสัญญา
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 truncate max-w-xs mt-0.5">
                           {p.title || p.subject}
@@ -698,6 +697,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                             <Eye className="w-3.5 h-3.5" />
                             <span>พิมพ์</span>
                           </button>
+
+                          {/* Create Contract Amendment Button */}
+                          {onCreateAmendment && (
+                            <button
+                              onClick={() => onCreateAmendment(p)}
+                              className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer"
+                              title="สร้างใบปรับปรุงสัญญา / ปรับรายการและราคา"
+                            >
+                              <FileCheck className="w-3.5 h-3.5 text-purple-600" />
+                              <span className="hidden xl:inline">ปรับปรุงสัญญา</span>
+                            </button>
+                          )}
 
                           {/* Clone Button */}
                           <button

@@ -8,6 +8,9 @@ interface DocumentHeaderProps {
   dateText?: string;
   compact?: boolean;
   showDocMeta?: boolean;
+  headerStyle?: 'minimal' | 'official';
+  docType?: 'quotation' | 'amendment';
+  amendmentDocTitle?: string;
 }
 
 export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
@@ -16,6 +19,9 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
   dateText,
   compact = false,
   showDocMeta = true,
+  headerStyle = 'minimal',
+  docType = 'quotation',
+  amendmentDocTitle,
 }) => {
   // Strip "สำนักงานใหญ่" if present as requested by the user
   const cleanAddress = (clinic.address || '')
@@ -27,10 +33,18 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
     .replace(/^เว็บไซต์\s*:?\s*/i, '')
     .trim();
 
+  const isAmendment = docType === 'amendment';
+  const mainTitle = isAmendment
+    ? (amendmentDocTitle || 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ')
+    : 'ใบเสนอราคา';
+  const subTitle = isAmendment ? 'CONTRACT AMENDMENT' : 'QUOTATION';
+
+  const isOfficial = headerStyle === 'official';
+
   return (
     <div
       className={`w-full border-b-2 border-blue-600 select-none ${
-        compact ? 'pb-1.5 mb-2.5' : 'pb-2 mb-3'
+        compact ? 'pb-2 mb-3' : 'pb-2 mb-3'
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -41,7 +55,7 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
             <ClinicLogo
               logoUrl={clinic.logoUrl}
               clinicId={clinic.id}
-              className={compact ? 'w-14 h-12' : 'w-16 h-14'}
+              className="w-16 h-14"
             />
           </div>
 
@@ -104,16 +118,16 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
           </div>
         </div>
 
-        {/* Right Section: Compact ใบเสนอราคา (Blue) / QUOTATION / Small Box with เลขที่ & วันที่ */}
-        {showDocMeta && (
-          <div className="flex-shrink-0 text-right min-w-[165px] pt-0.5 font-sans">
-            <div className="text-[20px] font-bold text-blue-700 tracking-tight leading-none">
-              ใบเสนอราคา
+        {/* Right Section: Minimal Header Style (with Box) */}
+        {!isOfficial && showDocMeta && (
+          <div className="flex-shrink-0 text-right min-w-[165px] max-w-[240px] pt-0.5 font-sans">
+            <div className={`font-bold text-blue-700 tracking-tight leading-snug ${isAmendment ? 'text-[14px]' : 'text-[20px]'}`}>
+              {mainTitle}
             </div>
             <div className="text-[9.5px] font-bold text-slate-500 tracking-[0.2em] uppercase mt-0.5 mb-1.5">
-              QUOTATION
+              {subTitle}
             </div>
-            {/* Compact Box: removed NO and Date labels per user request */}
+            {/* Compact Box */}
             <div className="rounded-lg border border-slate-300 bg-slate-50/70 py-1.5 px-2.5 text-left text-[11.5px] shadow-2xs space-y-0.5">
               <div className="flex items-center justify-between gap-2.5">
                 <span className="text-slate-600 font-medium whitespace-nowrap">เลขที่:</span>
@@ -131,14 +145,14 @@ export const DocumentHeader: React.FC<DocumentHeaderProps> = ({
           </div>
         )}
 
-        {/* Compact Right Section on Continuation Pages */}
-        {!showDocMeta && compact && documentNo && (
-          <div className="flex-shrink-0 text-right font-sans text-[11px] text-slate-700 pt-0.5">
-            <div className="text-[12px] font-bold text-blue-700 leading-tight">
-              ใบเสนอราคา <span className="text-[9.5px] font-semibold text-slate-500 tracking-wider">QUOTATION</span>
+        {/* Right Section: Official Header Style (Clean without box, title only) */}
+        {isOfficial && (
+          <div className="flex-shrink-0 text-right min-w-[160px] pt-1 font-sans">
+            <div className={`font-bold text-blue-700 tracking-tight leading-snug ${isAmendment ? 'text-[14px]' : 'text-[22px]'}`}>
+              {mainTitle}
             </div>
-            <div className="text-[10.5px] text-slate-700 font-medium mt-0.5">
-              เลขที่: <span className="font-bold font-mono text-slate-950">{documentNo}</span>
+            <div className="text-[10px] font-bold text-slate-500 tracking-[0.2em] uppercase mt-0.5">
+              {subTitle}
             </div>
           </div>
         )}

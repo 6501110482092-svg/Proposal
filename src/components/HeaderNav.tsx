@@ -33,6 +33,7 @@ interface HeaderNavProps {
   onExportData: () => void;
   onImportData: (jsonData: string) => void;
   saveStatus?: 'saved' | 'saving';
+  onOpenDocPicker?: () => void;
 }
 
 export const HeaderNav: React.FC<HeaderNavProps> = ({
@@ -49,6 +50,7 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
   onExportData,
   onImportData,
   saveStatus = 'saved',
+  onOpenDocPicker,
 }) => {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,12 +118,19 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
             </button>
 
             <button
-              onClick={() => onChangeViewMode('split')}
+              onClick={() => {
+                if (viewMode === 'dashboard' && onOpenDocPicker) {
+                  onOpenDocPicker();
+                } else {
+                  onChangeViewMode('split');
+                }
+              }}
               className={`px-3 py-1.5 rounded-lg text-xs font-bold transition flex items-center gap-1.5 cursor-pointer ${
                 viewMode !== 'dashboard'
                   ? 'bg-sky-600 text-white shadow-xs'
                   : 'text-slate-300 hover:text-white hover:bg-slate-750'
               }`}
+              title={viewMode === 'dashboard' ? 'เลือกเอกสารที่ต้องการแก้ไข' : 'หน้าจอแก้ไขและพิมพ์ A4'}
             >
               <Edit3 className="w-4 h-4" />
               <span>แก้ไขเอกสาร & A4</span>
@@ -142,6 +151,16 @@ export const HeaderNav: React.FC<HeaderNavProps> = ({
                   </option>
                 ))}
               </select>
+
+              {onOpenDocPicker && (
+                <button
+                  onClick={onOpenDocPicker}
+                  className="p-1.5 bg-slate-800 hover:bg-slate-700 text-sky-400 hover:text-sky-300 rounded-xl border border-slate-700 transition cursor-pointer"
+                  title="ดูรายการเอกสารทั้งหมดและเลือกเปิด"
+                >
+                  <FileText className="w-4 h-4" />
+                </button>
+              )}
 
               <button
                 onClick={onCreateNewProposal}

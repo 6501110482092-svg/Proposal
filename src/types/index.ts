@@ -64,6 +64,15 @@ export interface ProposalItem {
   isCustomHeadcount: boolean; // if true, uses custom headcount instead of table default
   totalPrice: number;
   note?: string;
+
+  // Contract Amendment Mode fields (ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ)
+  originalUnitPrice?: number; // ราคาเดิมจากใบเสนอราคา
+  originalFlatRateLabel?: string;
+  originalPricingType?: 'tier' | 'fixed' | 'free' | 'unpriced';
+  amendmentStatus?: 'included' | 'excluded'; // 'included' = "มี" (รับบริการ), 'excluded' = "ไม่มี" (ไม่รับบริการ)
+  amendmentPriceType?: 'original' | 'custom'; // 'original' = ราคาเดิม, 'custom' = ใส่ราคาใหม่
+  amendmentCustomPrice?: number; // ราคาใหม่กรณีใส่ราคาใหม่
+  amendmentCustomFlatRateLabel?: string;
 }
 
 export interface ProposalProgram {
@@ -77,6 +86,10 @@ export interface ProposalProgram {
   colPriceLabel: string;     // default: "ราคา (บาท)"
   colCountLabel: string;     // default: "จำนวนคน"
   colTotalLabel: string;     // default: "รวมราคา (บาท)"
+
+  // Amendment table column headers
+  colOriginalPriceLabel?: string; // default: "ใบเสนอราคาเดิม"
+  colAmendmentLabel?: string;     // default: "เอกสารปรับปรุง"
   
   items: ProposalItem[];
   
@@ -96,6 +109,13 @@ export interface ProposalDocument {
   documentNo: string;
   title: string;             // Internal nickname for proposal list, e.g. "เจริญสุข ฟาร์มา - ตรวจสุขภาพประจำปี 2569"
   clinicProfileId: string;
+
+  // Document Type: Normal Quotation vs Contract Amendment (ใบปรับปรุงสัญญา)
+  docType?: 'quotation' | 'amendment';
+  amendmentDocTitle?: string; // e.g. "ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ"
+  
+  // Header Style: 'minimal' (with right box) vs 'official' (date & docNo on same line above subject)
+  headerStyle?: 'minimal' | 'official';
   
   // Header details
   dateText: string;          // e.g. "20 ตุลาคม 2569"

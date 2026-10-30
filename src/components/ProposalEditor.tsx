@@ -43,6 +43,9 @@ import {
   Save,
   CornerDownLeft,
   ArrowRightToLine,
+  Check,
+  X,
+  FileCheck,
 } from 'lucide-react';
 
 interface ProposalEditorProps {
@@ -281,7 +284,21 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         const merged: ProposalItem = { ...item, ...updates };
 
         // Recalculate totalPrice
-        if (merged.pricingType === 'fixed') {
+        if (proposal.docType === 'amendment' && merged.amendmentStatus === 'excluded') {
+          merged.totalPrice = 0;
+        } else if (
+          proposal.docType === 'amendment' &&
+          merged.amendmentPriceType === 'custom' &&
+          merged.amendmentCustomPrice !== undefined
+        ) {
+          if (merged.pricingType === 'fixed') {
+            merged.totalPrice = merged.amendmentCustomPrice;
+          } else if (merged.pricingType === 'free') {
+            merged.totalPrice = 0;
+          } else {
+            merged.totalPrice = merged.amendmentCustomPrice * (merged.headcount || 0);
+          }
+        } else if (merged.pricingType === 'fixed') {
           // If flat rate, price is fixed
           merged.totalPrice = merged.unitPrice;
         } else if (merged.pricingType === 'free' || merged.pricingType === 'unpriced') {
@@ -561,6 +578,182 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                   className="w-full text-xs border border-slate-300 rounded-lg px-2.5 py-1.5 font-mono font-bold bg-white focus:ring-1 focus:ring-sky-500"
                 />
               </div>
+            </div>
+
+            {/* Header Style Selector (User requirement: minimal vs official) */}
+            <div className="pt-3 border-t border-slate-100">
+              <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                <span>รูปแบบหัวกระดาษ (Header Layout Style):</span>
+                <span className="text-[11px] text-slate-500 font-normal">
+                  เลือกสไตล์การวางเลขที่เอกสารและวันที่
+                </span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...proposal, headerStyle: 'minimal' })}
+                  className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                    (!proposal.headerStyle || proposal.headerStyle === 'minimal')
+                      ? 'border-sky-600 bg-sky-50/70 shadow-xs ring-1 ring-sky-500'
+                      : 'border-slate-300 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mt-0.5 p-1 rounded-lg bg-sky-100 text-sky-700">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>แบบมินิมอล (มีกล่องด้านขวา)</span>
+                      {(!proposal.headerStyle || proposal.headerStyle === 'minimal') && (
+                        <span className="text-[10px] text-sky-700 font-bold bg-sky-100 px-1.5 py-0.2 rounded">เลือกอยู่</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      หัวกระดาษมีกล่องใส่ "เลขที่:" และ "วันที่:" อยู่ด้านขวาบน ขนาดกะทัดรัด
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...proposal, headerStyle: 'official' })}
+                  className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                    proposal.headerStyle === 'official'
+                      ? 'border-sky-600 bg-sky-50/70 shadow-xs ring-1 ring-sky-500'
+                      : 'border-slate-300 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mt-0.5 p-1 rounded-lg bg-indigo-100 text-indigo-700">
+                    <Building2 className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>แบบทางการ (เลขที่ & วันที่เหนือชื่อเรื่อง)</span>
+                      {proposal.headerStyle === 'official' && (
+                        <span className="text-[10px] text-indigo-700 font-bold bg-indigo-100 px-1.5 py-0.2 rounded">เลือกอยู่</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      หัวกระดาษสะอาดตา และแสดงเลขที่กับวันที่อยู่บรรทัดเดียวกันเหนือช่อง "เรื่อง"
+                    </p>
+                  </div>
+                </button>
+              </div>
+            </div>
+
+            {/* Document Mode Selector: Normal Quotation vs Contract Amendment (User requirement) */}
+            <div className="pt-3 border-t border-slate-100">
+              <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
+                <span>ประเภทเอกสาร & โหมดการทำงาน (Document Mode):</span>
+                <span className="text-[11px] text-slate-500 font-normal">
+                  ใบเสนอราคาปกติ หรือ ใบปรับปรุงสัญญา/รายการและราคา
+                </span>
+              </label>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => onChange({ ...proposal, docType: 'quotation' })}
+                  className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                    (!proposal.docType || proposal.docType === 'quotation')
+                      ? 'border-emerald-600 bg-emerald-50/70 shadow-xs ring-1 ring-emerald-500'
+                      : 'border-slate-300 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mt-0.5 p-1 rounded-lg bg-emerald-100 text-emerald-700">
+                    <FileText className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>📄 ใบเสนอราคาปกติ (Quotation)</span>
+                      {(!proposal.docType || proposal.docType === 'quotation') && (
+                        <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">เลือกอยู่</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      หัวเรื่อง "ใบเสนอราคา" แสดงตารางราคาปกติ (ลำดับ, รายการ, ราคา, จำนวนคน, รวมราคา)
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    // Initialize amendment fields if needed
+                    const updatedPrograms = proposal.programs.map(prog => ({
+                      ...prog,
+                      colOriginalPriceLabel: prog.colOriginalPriceLabel || 'ใบเสนอราคาเดิม',
+                      colAmendmentLabel: prog.colAmendmentLabel || 'เอกสารปรับปรุง',
+                      items: prog.items.map(it => ({
+                        ...it,
+                        originalUnitPrice: it.originalUnitPrice !== undefined ? it.originalUnitPrice : it.unitPrice,
+                        originalFlatRateLabel: it.originalFlatRateLabel !== undefined ? it.originalFlatRateLabel : it.flatRateLabel,
+                        originalPricingType: it.originalPricingType !== undefined ? it.originalPricingType : it.pricingType,
+                        amendmentStatus: it.amendmentStatus || 'included',
+                        amendmentPriceType: it.amendmentPriceType || 'original',
+                        amendmentCustomPrice: it.amendmentCustomPrice !== undefined ? it.amendmentCustomPrice : it.unitPrice,
+                      })),
+                    }));
+                    onChange({
+                      ...proposal,
+                      docType: 'amendment',
+                      amendmentDocTitle: proposal.amendmentDocTitle || 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ',
+                      programs: updatedPrograms,
+                    });
+                  }}
+                  className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                    proposal.docType === 'amendment'
+                      ? 'border-purple-600 bg-purple-50/70 shadow-xs ring-1 ring-purple-500'
+                      : 'border-slate-300 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mt-0.5 p-1 rounded-lg bg-purple-100 text-purple-700">
+                    <FileCheck className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>📝 ใบปรับปรุงสัญญา (Contract Amendment)</span>
+                      {proposal.docType === 'amendment' && (
+                        <span className="text-[10px] text-purple-700 font-bold bg-purple-100 px-1.5 py-0.2 rounded">เลือกอยู่</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      เปรียบเทียบ "ใบเสนอราคาเดิม" vs "เอกสารปรับปรุง (มี/ไม่มี/ราคาใหม่)" และสรุปยอดราคาใหม่
+                    </p>
+                  </div>
+                </button>
+              </div>
+
+              {/* Amendment Options Sub-panel */}
+              {proposal.docType === 'amendment' && (
+                <div className="mt-2.5 p-3 bg-purple-50/80 border border-purple-200 rounded-xl space-y-2">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                    <span className="text-xs font-bold text-purple-900">
+                      หัวเรื่องเอกสารปรับปรุงสัญญา:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        onChange({
+                          ...proposal,
+                          subject: 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ ประจำปี 2569',
+                          amendmentDocTitle: 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ',
+                        })
+                      }
+                      className="text-[11px] text-purple-700 hover:text-purple-900 bg-white border border-purple-300 px-2.5 py-1 rounded-lg font-bold transition flex items-center gap-1 cursor-pointer self-start sm:self-auto"
+                    >
+                      <Sparkles className="w-3.5 h-3.5 text-purple-600" />
+                      <span>ตั้งชื่อเรื่องมาตรฐานสำหรับปรับปรุงสัญญา</span>
+                    </button>
+                  </div>
+                  <input
+                    type="text"
+                    value={proposal.amendmentDocTitle || 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ'}
+                    onChange={e => onChange({ ...proposal, amendmentDocTitle: e.target.value })}
+                    className="w-full text-xs border border-purple-300 rounded-lg px-2.5 py-1.5 font-bold text-purple-950 bg-white"
+                    placeholder="ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ"
+                  />
+                </div>
+              )}
             </div>
 
             {/* Document Body Text Color Selector (Doesn't affect header) */}
@@ -1070,72 +1263,153 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                     <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       ปรับแต่งข้อความหัวตาราง (สามารถพิมพ์แก้ไขคำได้ตามต้องการ):
                     </span>
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-slate-500">คอลัมน์ 1</label>
-                        <input
-                          type="text"
-                          value={prog.colRankLabel}
-                          onChange={e => {
-                            const updated = proposal.programs.map(p =>
-                              p.id === prog.id ? { ...p, colRankLabel: e.target.value } : p
-                            );
-                            onChange({ ...proposal, programs: updated });
-                          }}
-                          className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
-                        />
+                    {proposal.docType === 'amendment' ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 1 (ลำดับ)</label>
+                          <input
+                            type="text"
+                            value={prog.colRankLabel || 'ลำดับ'}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colRankLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 2 (ชื่อรายการ)</label>
+                          <input
+                            type="text"
+                            value={prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพ'}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colNameLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-purple-700 font-bold">คอลัมน์ 3 (ราคาเดิม)</label>
+                          <input
+                            type="text"
+                            value={prog.colOriginalPriceLabel || 'ใบเสนอราคาเดิม'}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colOriginalPriceLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-purple-300 rounded px-2 py-1 font-semibold bg-purple-50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-purple-700 font-bold">คอลัมน์ 4 (ปรับปรุง)</label>
+                          <input
+                            type="text"
+                            value={prog.colAmendmentLabel || 'เอกสารปรับปรุง'}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colAmendmentLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-purple-300 rounded px-2 py-1 font-semibold bg-purple-50"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 5 (จำนวนคน)</label>
+                          <input
+                            type="text"
+                            value={prog.colCountLabel || 'จำนวนคน'}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colCountLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
                       </div>
-                      <div className="sm:col-span-2">
-                        <label className="block text-[10px] text-slate-500">คอลัมน์ 2 (ชื่อรายการ)</label>
-                        <input
-                          type="text"
-                          value={prog.colNameLabel}
-                          onChange={e => {
-                            const updated = proposal.programs.map(p =>
-                              p.id === prog.id ? { ...p, colNameLabel: e.target.value } : p
-                            );
-                            onChange({ ...proposal, programs: updated });
-                          }}
-                          className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
-                        />
+                    ) : (
+                      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 1</label>
+                          <input
+                            type="text"
+                            value={prog.colRankLabel}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colRankLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 2 (ชื่อรายการ)</label>
+                          <input
+                            type="text"
+                            value={prog.colNameLabel}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colNameLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 3 (ราคา)</label>
+                          <input
+                            type="text"
+                            value={prog.colPriceLabel}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colPriceLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 4 (จำนวนคน)</label>
+                          <input
+                            type="text"
+                            value={prog.colCountLabel}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colCountLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
                       </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500">คอลัมน์ 3 (ราคา)</label>
-                        <input
-                          type="text"
-                          value={prog.colPriceLabel}
-                          onChange={e => {
-                            const updated = proposal.programs.map(p =>
-                              p.id === prog.id ? { ...p, colPriceLabel: e.target.value } : p
-                            );
-                            onChange({ ...proposal, programs: updated });
-                          }}
-                          className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-slate-500">คอลัมน์ 4 (จำนวนคน)</label>
-                        <input
-                          type="text"
-                          value={prog.colCountLabel}
-                          onChange={e => {
-                            const updated = proposal.programs.map(p =>
-                              p.id === prog.id ? { ...p, colCountLabel: e.target.value } : p
-                            );
-                            onChange({ ...proposal, programs: updated });
-                          }}
-                          className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
-                        />
-                      </div>
-                    </div>
+                    )}
                   </div>
 
                   {/* Items List */}
                   <div className="space-y-2">
-                    {prog.items.map((item, itemIdx) => (
+                    {prog.items.map((item, itemIdx) => {
+                      const isExcluded = proposal.docType === 'amendment' && item.amendmentStatus === 'excluded';
+                      return (
                       <div
                         key={item.id}
-                        className="bg-white border border-slate-200 rounded-xl p-3 shadow-2xs hover:border-slate-300 transition"
+                        className={`rounded-xl p-3 transition ${
+                          isExcluded
+                            ? 'bg-slate-50 border border-slate-200 opacity-60'
+                            : 'bg-white border border-slate-200 shadow-2xs hover:border-slate-300'
+                        }`}
                       >
                         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                           {/* Order and Name (Multi-line with Enter, Tab and Bold buttons) */}
@@ -1349,8 +1623,124 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                             </div>
                           </div>
                         </div>
+
+                        {/* Amendment Mode Controls (โหมดปรับปรุงสัญญา: มี/ไม่มี, ราคาเดิม vs ราคาใหม่) */}
+                        {proposal.docType === 'amendment' && (
+                          <div className="mt-2.5 pt-2 border-t border-purple-100 flex flex-wrap items-center justify-between gap-2 bg-purple-50/70 p-2.5 rounded-lg">
+                            <div className="flex items-center gap-2">
+                              <span className="text-[11px] font-bold text-purple-900">
+                                ข้อตกลงปรับปรุง:
+                              </span>
+                              <div className="inline-flex rounded-lg border border-purple-200 bg-white p-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateItem(prog.id, item.id, {
+                                      amendmentStatus: 'included',
+                                    })
+                                  }
+                                  className={`px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1 transition cursor-pointer ${
+                                    item.amendmentStatus !== 'excluded'
+                                      ? 'bg-blue-600 text-white shadow-2xs'
+                                      : 'text-slate-600 hover:text-slate-900'
+                                  }`}
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>มี (รับบริการ)</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    handleUpdateItem(prog.id, item.id, {
+                                      amendmentStatus: 'excluded',
+                                    })
+                                  }
+                                  className={`px-2.5 py-1 text-xs font-bold rounded-md flex items-center gap-1 transition cursor-pointer ${
+                                    item.amendmentStatus === 'excluded'
+                                      ? 'bg-rose-600 text-white shadow-2xs'
+                                      : 'text-slate-600 hover:text-rose-700'
+                                  }`}
+                                >
+                                  <X className="w-3 h-3" />
+                                  <span>ไม่มี (ไม่รับบริการ)</span>
+                                </button>
+                              </div>
+                            </div>
+
+                            {/* Original vs Revised Price */}
+                            <div className="flex flex-wrap items-center gap-2 text-xs">
+                              <span className="text-[11px] text-slate-600 bg-white px-2.5 py-1 rounded-md border border-purple-200 font-medium">
+                                ใบเสนอราคาเดิม:{' '}
+                                <strong className="text-slate-900 font-bold">
+                                  {item.originalPricingType === 'fixed'
+                                    ? item.originalFlatRateLabel || `${item.originalUnitPrice || item.unitPrice} ฿`
+                                    : item.originalPricingType === 'free'
+                                    ? 'ฟรี'
+                                    : `${item.originalUnitPrice !== undefined ? item.originalUnitPrice : item.unitPrice} ฿`}
+                                </strong>
+                              </span>
+
+                              {item.amendmentStatus !== 'excluded' && (
+                                <div className="flex items-center gap-2 bg-white px-2.5 py-1 rounded-lg border border-purple-200">
+                                  <label className="flex items-center gap-1 cursor-pointer">
+                                    <input
+                                      type="radio"
+                                      name={`priceType-${item.id}`}
+                                      checked={item.amendmentPriceType !== 'custom'}
+                                      onChange={() =>
+                                        handleUpdateItem(prog.id, item.id, {
+                                          amendmentPriceType: 'original',
+                                        })
+                                      }
+                                      className="text-purple-600 w-3 h-3"
+                                    />
+                                    <span className="text-[11px] font-semibold text-slate-700">ใช้ราคาเดิม</span>
+                                  </label>
+                                  <label className="flex items-center gap-1 cursor-pointer ml-1">
+                                    <input
+                                      type="radio"
+                                      name={`priceType-${item.id}`}
+                                      checked={item.amendmentPriceType === 'custom'}
+                                      onChange={() =>
+                                        handleUpdateItem(prog.id, item.id, {
+                                          amendmentPriceType: 'custom',
+                                          amendmentCustomPrice:
+                                            item.amendmentCustomPrice !== undefined
+                                              ? item.amendmentCustomPrice
+                                              : item.unitPrice,
+                                        })
+                                      }
+                                      className="text-purple-600 w-3 h-3"
+                                    />
+                                    <span className="text-[11px] font-semibold text-emerald-800">ใส่ราคาใหม่:</span>
+                                  </label>
+                                  {item.amendmentPriceType === 'custom' && (
+                                    <div className="flex items-center gap-1">
+                                      <input
+                                        type="number"
+                                        value={
+                                          item.amendmentCustomPrice !== undefined
+                                            ? item.amendmentCustomPrice
+                                            : item.unitPrice
+                                        }
+                                        onChange={e =>
+                                          handleUpdateItem(prog.id, item.id, {
+                                            amendmentCustomPrice: parseFloat(e.target.value) || 0,
+                                          })
+                                        }
+                                        className="w-18 px-1.5 py-0.5 text-xs font-bold text-emerald-800 bg-emerald-50 border border-emerald-300 rounded text-right"
+                                      />
+                                      <span className="text-[10px] text-slate-500">฿</span>
+                                    </div>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                          </div>
+                        )}
                       </div>
-                    ))}
+                    );
+                  })}
                   </div>
 
                   {/* Add Test Actions */}

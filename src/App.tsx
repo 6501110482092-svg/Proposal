@@ -24,6 +24,7 @@ import { ClinicProfilesModal, ensureClinicDefaults } from './components/ClinicPr
 import { MasterCatalogModal } from './components/MasterCatalogModal';
 import { CloneProposalModal } from './components/CloneProposalModal';
 import { ProposalHistoryModal } from './components/ProposalHistoryModal';
+import { DocumentPickerModal } from './components/DocumentPickerModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getTodayThaiDate } from './utils/thaiDate';
 import { generateCompanyDocNumber } from './utils/docNumber';
@@ -130,6 +131,7 @@ export default function App() {
   const [isCatalogModalOpen, setIsCatalogModalOpen] = useState(false);
   const [isCloneModalOpen, setIsCloneModalOpen] = useState(false);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
+  const [isDocPickerModalOpen, setIsDocPickerModalOpen] = useState(false);
   const [cloneSourceProposal, setCloneSourceProposal] = useState<ProposalDocument | null>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
 
@@ -405,6 +407,46 @@ export default function App() {
     setViewMode('split');
   };
 
+  // Create Contract Amendment (โหมดปรับปรุงสัญญา)
+  const handleCreateAmendment = (sourceProposal: ProposalDocument) => {
+    const newId = `prop-${Date.now()}`;
+    const amendedDoc: ProposalDocument = {
+      ...JSON.parse(JSON.stringify(sourceProposal)),
+      id: newId,
+      docType: 'amendment',
+      amendmentDocTitle: 'ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ',
+      title: `[ใบปรับปรุงสัญญา] ${sourceProposal.title || sourceProposal.documentNo}`,
+      documentNo: `${sourceProposal.documentNo || 'QT'}-AMD`,
+      dateText: getTodayThaiDate('standard'),
+      subject: `ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ ประจำปี 2569`,
+      programs: sourceProposal.programs.map(prog => ({
+        ...prog,
+        colOriginalPriceLabel: 'ใบเสนอราคาเดิม',
+        colAmendmentLabel: 'เอกสารปรับปรุง',
+        items: prog.items.map(item => ({
+          ...item,
+          originalUnitPrice: item.originalUnitPrice !== undefined ? item.originalUnitPrice : item.unitPrice,
+          originalFlatRateLabel: item.originalFlatRateLabel !== undefined ? item.originalFlatRateLabel : item.flatRateLabel,
+          originalPricingType: item.originalPricingType !== undefined ? item.originalPricingType : item.pricingType,
+          amendmentStatus: item.amendmentStatus || 'included',
+          amendmentPriceType: item.amendmentPriceType || 'original',
+          amendmentCustomPrice: item.amendmentCustomPrice !== undefined ? item.amendmentCustomPrice : item.unitPrice,
+        })),
+      })),
+      remarks: [
+        'การแก้ไขและปรับปรุงรายละเอียดรายการตรวจสุขภาพและราคาข้างต้น เป็นข้อตกลงร่วมกันระหว่างทั้งสองฝ่าย',
+        ...(sourceProposal.remarks || []),
+      ],
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setProposals(prev => [amendedDoc, ...prev]);
+    setActiveProposalId(newId);
+    setViewMode('split');
+  };
+
   // Export JSON backup
   const handleExportData = () => {
     const backup = {
@@ -467,6 +509,7 @@ export default function App() {
           onExportData={handleExportData}
           onImportData={handleImportData}
           saveStatus={saveStatus}
+          onOpenDocPicker={() => setIsDocPickerModalOpen(true)}
         />
 
         {/* Main Content Area */}
@@ -495,6 +538,7 @@ export default function App() {
                 onOpenMasterCatalog={() => setIsCatalogModalOpen(true)}
                 onExportData={handleExportData}
                 onImportData={handleImportData}
+                onCreateAmendment={handleCreateAmendment}
               />
             </ErrorBoundary>
           )}
@@ -729,6 +773,27 @@ export default function App() {
             onDeleteProposal={handleDeleteProposal}
             onUpdateStatus={handleUpdateStatus}
             onCreateNew={handleCreateNewProposal}
+          />
+        </ErrorBoundary>
+
+        {/* 5. Document Picker Modal (Triggered from 'แก้ไขเอกสาร & A4' or navbar) */}
+        <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการเลือกเอกสาร">
+          <DocumentPickerModal
+            isOpen={isDocPickerModalOpen}
+            onClose={() => setIsDocPickerModalOpen(false)}
+            proposals={proposals}
+            clinics={clinics}
+            activeProposalId={activeProposalId}
+            onSelectAndEdit={id => {
+              setActiveProposalId(id);
+              setViewMode('split');
+            }}
+            onSelectAndPreview={id => {
+              setActiveProposalId(id);
+              setViewMode('preview');
+            }}
+            onCreateNew={() => handleCreateNewProposal()}
+            onCreateAmendment={handleCreateAmendment}
           />
         </ErrorBoundary>
       </div>

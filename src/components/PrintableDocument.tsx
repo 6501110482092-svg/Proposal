@@ -67,8 +67,50 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
     borderColor: resolvedBorderColor,
   };
 
+  // Helper to calculate original total of a program
+  const calculateOriginalProgramTotal = (prog: ProposalProgram): number => {
+    return prog.items.reduce((sum, item) => {
+      const origUnit = item.originalUnitPrice !== undefined ? item.originalUnitPrice : item.unitPrice;
+      if (item.pricingType === 'fixed' || item.originalPricingType === 'fixed') {
+        return sum + (item.totalPrice || origUnit || 0);
+      }
+      if (item.pricingType === 'free' || item.originalPricingType === 'free') {
+        return sum;
+      }
+      const count = item.headcount || prog.defaultHeadcount || 0;
+      return sum + (origUnit * count);
+    }, 0);
+  };
+
+  // Helper to calculate amended total of a program (only includes items with amendmentStatus !== 'excluded')
+  const calculateAmendedProgramTotal = (prog: ProposalProgram): number => {
+    if (prog.totalPriceOverride !== undefined && prog.totalPriceOverride !== null) {
+      return prog.totalPriceOverride;
+    }
+    return prog.items.reduce((sum, item) => {
+      if (item.amendmentStatus === 'excluded') {
+        return sum;
+      }
+      let effectiveUnit = item.unitPrice;
+      if (item.amendmentPriceType === 'custom' && item.amendmentCustomPrice !== undefined) {
+        effectiveUnit = item.amendmentCustomPrice;
+      }
+      if (item.pricingType === 'fixed') {
+        return sum + (item.amendmentPriceType === 'custom' && item.amendmentCustomPrice !== undefined ? item.amendmentCustomPrice : item.totalPrice);
+      }
+      if (item.pricingType === 'free') {
+        return sum;
+      }
+      const count = item.headcount || prog.defaultHeadcount || 0;
+      return sum + (effectiveUnit * count);
+    }, 0);
+  };
+
   // Calculate total price of a program
   const calculateProgramTotal = (prog: ProposalProgram): number => {
+    if (proposal.docType === 'amendment') {
+      return calculateAmendedProgramTotal(prog);
+    }
     if (prog.totalPriceOverride !== undefined && prog.totalPriceOverride !== null) {
       return prog.totalPriceOverride;
     }
@@ -77,8 +119,14 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
   // Helper to render a table program
   const renderProgramTable = (prog: ProposalProgram, index: number) => {
+    const isAmendment = proposal.docType === 'amendment';
     const totalAmount = calculateProgramTotal(prog);
+    const origTotalAmount = calculateOriginalProgramTotal(prog);
     const thaiBaht = prog.thaiBahtTextOverride || bahttext(totalAmount);
+
+    const origPerPerson = prog.defaultHeadcount > 0 ? Math.round(origTotalAmount / prog.defaultHeadcount) : 0;
+    const amendedPerPerson = prog.defaultHeadcount > 0 ? Math.round(totalAmount / prog.defaultHeadcount) : 0;
+    const standardPerPerson = prog.defaultHeadcount > 0 ? Math.round(totalAmount / prog.defaultHeadcount) : 0;
 
     return (
       <div key={prog.id || index} className="mb-5 avoid-break" style={bodyStyle}>
@@ -100,7 +148,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
           <thead>
             <tr className="bg-slate-100/70 font-bold text-center">
               <th
-                className="py-1 px-1.5 w-12 text-center"
+                className="py-1 px-1.5 w-10 text-center"
                 style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
               >
                 {prog.colRankLabel || 'ลำดับ'}
@@ -111,20 +159,37 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
               >
                 {prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพ'}
               </th>
+              {isAmendment ? (
+                <>
+                  <th
+                    className="py-1 px-2 w-28 text-center whitespace-nowrap"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {prog.colOriginalPriceLabel || 'ใบเสนอราคาเดิม'}
+                  </th>
+                  <th
+                    className="py-1 px-2 w-36 text-center whitespace-nowrap"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {prog.colAmendmentLabel || 'เอกสารปรับปรุง'}
+                  </th>
+                </>
+              ) : (
+                <th
+                  className="py-1 px-2 w-28 text-center whitespace-nowrap"
+                  style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                >
+                  {prog.colPriceLabel || 'ราคา (บาท)'}
+                </th>
+              )}
               <th
-                className="py-1 px-2 w-28 text-center whitespace-nowrap"
-                style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-              >
-                {prog.colPriceLabel || 'ราคา (บาท)'}
-              </th>
-              <th
-                className="py-1 px-2 w-20 text-center whitespace-nowrap"
+                className="py-1 px-2 w-18 text-center whitespace-nowrap"
                 style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
               >
                 {prog.colCountLabel || 'จำนวนคน'}
               </th>
               <th
-                className="py-1 px-2 w-28 text-center whitespace-nowrap"
+                className="py-1 px-2 w-26 text-center whitespace-nowrap"
                 style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
               >
                 {prog.colTotalLabel || 'รวมราคา'}
@@ -133,7 +198,9 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
           </thead>
           <tbody>
             {prog.items.map((item, itemIdx) => {
-              // Format price display
+              const isExcluded = isAmendment && item.amendmentStatus === 'excluded';
+
+              // Format price display in standard mode
               let priceDisplay: string = '-';
               if (item.pricingType === 'fixed' && item.flatRateLabel) {
                 priceDisplay = item.flatRateLabel;
@@ -145,30 +212,91 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                 priceDisplay = item.unitPrice.toLocaleString();
               }
 
-              // Headcount display
-              const countDisplay =
-                item.pricingType === 'unpriced' && item.headcount === 0
-                  ? '-'
-                  : item.pricingType === 'fixed' && !item.headcount
-                  ? '-'
-                  : item.headcount
-                  ? item.headcount.toLocaleString()
-                  : '-';
+              // Original price display for amendment mode
+              const origUnit = item.originalUnitPrice !== undefined ? item.originalUnitPrice : item.unitPrice;
+              let origPriceDisplay = '-';
+              if (item.originalPricingType === 'fixed' || item.pricingType === 'fixed') {
+                origPriceDisplay = item.originalFlatRateLabel || item.flatRateLabel || `${origUnit.toLocaleString()} ฿`;
+              } else if (item.originalPricingType === 'free' || item.pricingType === 'free') {
+                origPriceDisplay = 'ฟรี';
+              } else if (origUnit > 0) {
+                origPriceDisplay = `${origUnit.toLocaleString()}`;
+              }
 
-              // Total display
+              // Amendment selection display
+              let amendmentSelectionDisplay = null;
+              if (isAmendment) {
+                if (isExcluded) {
+                  amendmentSelectionDisplay = (
+                    <span className="text-slate-400 font-medium text-[12px]">
+                      ไม่มี (ไม่รับบริการ)
+                    </span>
+                  );
+                } else if (item.amendmentPriceType === 'custom' && item.amendmentCustomPrice !== undefined) {
+                  amendmentSelectionDisplay = (
+                    <span className="text-emerald-700 font-bold text-[12px]">
+                      มี (ราคาใหม่ {item.amendmentCustomPrice.toLocaleString()} ฿)
+                    </span>
+                  );
+                } else {
+                  amendmentSelectionDisplay = (
+                    <span className="text-blue-700 font-bold text-[12px]">
+                      มี (ราคาเดิม)
+                    </span>
+                  );
+                }
+              }
+
+              // Headcount display
+              const countDisplay = isExcluded
+                ? '-'
+                : item.pricingType === 'unpriced' && item.headcount === 0
+                ? '-'
+                : item.pricingType === 'fixed' && !item.headcount
+                ? '-'
+                : item.headcount
+                ? item.headcount.toLocaleString()
+                : '-';
+
+              // Item Total price calculation
+              let itemTotalNum = 0;
+              if (!isExcluded) {
+                if (isAmendment) {
+                  const effectiveUnit = item.amendmentPriceType === 'custom' && item.amendmentCustomPrice !== undefined
+                    ? item.amendmentCustomPrice
+                    : item.unitPrice;
+                  if (item.pricingType === 'fixed') {
+                    itemTotalNum = item.amendmentPriceType === 'custom' && item.amendmentCustomPrice !== undefined
+                      ? item.amendmentCustomPrice
+                      : item.totalPrice;
+                  } else if (item.pricingType === 'free') {
+                    itemTotalNum = 0;
+                  } else {
+                    itemTotalNum = effectiveUnit * (item.headcount || prog.defaultHeadcount || 0);
+                  }
+                } else {
+                  itemTotalNum = item.totalPrice || 0;
+                }
+              }
+
               let totalDisplay = '-';
-              if (item.pricingType === 'fixed' && item.flatRateLabel?.includes('เหมาจ่าย') && !item.totalPrice) {
-                totalDisplay = '-';
-              } else if (item.totalPrice > 0) {
-                totalDisplay = item.totalPrice.toLocaleString();
-              } else if (item.pricingType === 'free') {
-                totalDisplay = '-';
+              if (!isExcluded) {
+                if (item.pricingType === 'fixed' && item.flatRateLabel?.includes('เหมาจ่าย') && !itemTotalNum) {
+                  totalDisplay = '-';
+                } else if (itemTotalNum > 0) {
+                  totalDisplay = itemTotalNum.toLocaleString();
+                } else if (item.pricingType === 'free') {
+                  totalDisplay = '-';
+                }
               }
 
               return (
-                <tr key={item.id || itemIdx} className="hover:bg-slate-50/50">
+                <tr
+                  key={item.id || itemIdx}
+                  className={`hover:bg-slate-50/50 ${isExcluded ? 'bg-slate-50/40' : ''}`}
+                >
                   <td
-                    className="py-1 px-1 text-center font-medium"
+                    className={`py-1 px-1 text-center font-medium ${isExcluded ? 'text-slate-400' : ''}`}
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
                     {item.orderNumber || itemIdx + 1}
@@ -178,34 +306,54 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
                     <div
-                      className="font-normal leading-snug"
-                      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                      className={`font-normal leading-snug ${isExcluded ? 'text-slate-400' : ''}`}
+                      style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: isExcluded ? '#94a3b8' : undefined }}
                     >
-                      {renderFormattedThaiText(item.name, resolvedBoldColor)}
+                      {renderFormattedThaiText(item.name, isExcluded ? '#94a3b8' : resolvedBoldColor)}
                     </div>
                     {item.note && (
                       <div
-                        className="text-[11px] opacity-80 mt-0.5"
-                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                        className={`text-[11px] mt-0.5 ${isExcluded ? 'text-slate-400 opacity-70' : 'opacity-80'}`}
+                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word', color: isExcluded ? '#94a3b8' : undefined }}
                       >
-                        {renderFormattedThaiText(item.note, resolvedBoldColor)}
+                        {renderFormattedThaiText(item.note, isExcluded ? '#94a3b8' : resolvedBoldColor)}
                       </div>
                     )}
                   </td>
+
+                  {/* Standard or Amendment Price Columns */}
+                  {isAmendment ? (
+                    <>
+                      <td
+                        className={`py-1 px-2 text-center whitespace-nowrap ${isExcluded ? 'text-slate-400' : 'text-slate-700'}`}
+                        style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                      >
+                        {origPriceDisplay}
+                      </td>
+                      <td
+                        className="py-1 px-2 text-center whitespace-nowrap"
+                        style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                      >
+                        {amendmentSelectionDisplay}
+                      </td>
+                    </>
+                  ) : (
+                    <td
+                      className="py-1 px-2 text-center whitespace-nowrap"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      {priceDisplay}
+                    </td>
+                  )}
+
                   <td
-                    className="py-1 px-2 text-center whitespace-nowrap"
-                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-                  >
-                    {priceDisplay}
-                  </td>
-                  <td
-                    className="py-1 px-2 text-center whitespace-nowrap"
+                    className={`py-1 px-2 text-center whitespace-nowrap ${isExcluded ? 'text-slate-400' : ''}`}
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
                     {countDisplay}
                   </td>
                   <td
-                    className="py-1 px-2 text-right font-medium whitespace-nowrap"
+                    className={`py-1 px-2 text-right font-medium whitespace-nowrap ${isExcluded ? 'text-slate-400' : ''}`}
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
                     {totalDisplay}
@@ -222,7 +370,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
               >
                 <td
                   colSpan={2}
-                  className="py-1 px-2.5 text-left"
+                  className="py-1.5 px-2.5 text-left"
                   style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                 >
                   <div className="flex flex-col">
@@ -230,20 +378,39 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                       {prog.totalRowLabel || 'รวมราคาโปรแกรมรายการตรวจ'}
                     </span>
                     {thaiBaht && totalAmount > 0 && (
-                      <span className="text-[12px] font-medium opacity-90 italic">
+                      <span className="text-[12px] font-medium opacity-90 italic mt-0.5">
                         ({thaiBaht})
                       </span>
                     )}
                   </div>
                 </td>
+
+                {isAmendment ? (
+                  <>
+                    <td
+                      className="py-1 px-2 text-center text-xs text-slate-400 font-normal"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      -
+                    </td>
+                    <td
+                      className="py-1 px-2 text-center text-xs text-blue-800 font-bold"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      {amendedPerPerson > 0 ? `${amendedPerPerson.toLocaleString()} ฿/คน` : '-'}
+                    </td>
+                  </>
+                ) : (
+                  <td
+                    className="py-1 px-2 text-center text-xs font-bold text-blue-900"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {standardPerPerson > 0 ? `${standardPerPerson.toLocaleString()} ฿/คน` : '-'}
+                  </td>
+                )}
+
                 <td
-                  className="py-1 px-2 text-center"
-                  style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-                >
-                  -
-                </td>
-                <td
-                  className="py-1 px-2 text-center"
+                  className="py-1 px-2 text-center font-bold"
                   style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                 >
                   {prog.defaultHeadcount || '-'}
@@ -279,10 +446,25 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
           documentNo={proposal.documentNo}
           dateText={proposal.dateText}
           showDocMeta={true}
+          headerStyle={proposal.headerStyle || 'minimal'}
+          docType={proposal.docType}
+          amendmentDocTitle={proposal.amendmentDocTitle}
         />
 
         {/* Body content with selected text color */}
         <div style={bodyStyle}>
+          {/* If official header style is chosen, render Document No & Date on the same line right above Subject */}
+          {proposal.headerStyle === 'official' && (
+            <div className="flex items-center justify-between text-[13.5px] font-medium text-slate-900 mb-3 pt-0.5 pb-1 border-b border-slate-200">
+              <div>
+                <span className="font-bold">เลขที่:</span> <span className="font-mono font-bold text-slate-950">{proposal.documentNo || '-'}</span>
+              </div>
+              <div>
+                <span className="font-bold">วันที่:</span> <span className="font-semibold text-slate-900">{proposal.dateText || '-'}</span>
+              </div>
+            </div>
+          )}
+
           {/* Subject (เรื่อง) */}
           <div className="flex items-baseline gap-2 mb-2 text-[14px]">
             <span className="font-bold whitespace-nowrap min-w-[50px]" style={{ color: resolvedBoldColor }}>
@@ -333,13 +515,23 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
     return (
       <div className="a4-sheet a4-page flex flex-col justify-between">
         <div>
-          {/* Header on Page 2 */}
+          {/* Header on Page 2 (Exact same header structure as Page 1!) */}
           <DocumentHeader
             clinic={clinic}
             documentNo={proposal.documentNo}
-            compact
-            showDocMeta={false}
+            dateText={proposal.dateText}
+            showDocMeta={true}
+            headerStyle={proposal.headerStyle || 'minimal'}
+            docType={proposal.docType}
+            amendmentDocTitle={proposal.amendmentDocTitle}
           />
+
+          {proposal.headerStyle === 'official' && (
+            <div className="flex items-center justify-between text-[12px] font-medium text-slate-600 mb-2 pt-0.5 border-b border-slate-200">
+              <div>เลขที่: <span className="font-mono font-bold text-slate-800">{proposal.documentNo || '-'}</span></div>
+              <div>วันที่: {proposal.dateText || '-'}</div>
+            </div>
+          )}
 
           {/* Programs for Page 2 */}
           <div style={bodyStyle}>
@@ -366,13 +558,23 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
     return (
       <div className="a4-sheet a4-page flex flex-col justify-between">
         <div>
-          {/* Header on Final Page */}
+          {/* Header on Final Page (Exact same header structure as Page 1!) */}
           <DocumentHeader
             clinic={clinic}
             documentNo={proposal.documentNo}
-            compact
-            showDocMeta={false}
+            dateText={proposal.dateText}
+            showDocMeta={true}
+            headerStyle={proposal.headerStyle || 'minimal'}
+            docType={proposal.docType}
+            amendmentDocTitle={proposal.amendmentDocTitle}
           />
+
+          {proposal.headerStyle === 'official' && (
+            <div className="flex items-center justify-between text-[12px] font-medium text-slate-600 mb-2 pt-0.5 border-b border-slate-200">
+              <div>เลขที่: <span className="font-mono font-bold text-slate-800">{proposal.documentNo || '-'}</span></div>
+              <div>วันที่: {proposal.dateText || '-'}</div>
+            </div>
+          )}
 
           <div style={bodyStyle}>
             {/* Remarks Section (หมายเหตุ) */}
