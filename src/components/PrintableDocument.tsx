@@ -906,21 +906,25 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                   style={{ border: `1px solid ${resolvedBorderColor}` }}
                 >
                   {proposal.coordinators.map((coord, idx) => (
-                    <div key={coord.id || idx} className="mb-1.5 last:mb-0">
-                      <div className="font-medium">
+                    <div key={coord.id || idx} className="mb-2 last:mb-0">
+                      <div className="font-medium leading-snug">
                         ผู้ประสานงาน{' '}
                         <span className="font-bold" style={{ color: resolvedBoldColor }}>
                           {coord.name}
                         </span>
-                        {coord.phone && <span> โทร: {coord.phone}</span>}
                       </div>
+                      {coord.phone && (
+                        <div className="font-medium whitespace-nowrap leading-snug">
+                          โทร: {coord.phone}
+                        </div>
+                      )}
                       {coord.email && (
-                        <div className="opacity-80 text-[12px]">
+                        <div className="opacity-80 text-[12px] break-all leading-snug">
                           E-mail: {coord.email}
                         </div>
                       )}
                       {coord.note && (
-                        <div className="font-medium text-[11.5px] mt-0.5">
+                        <div className="font-medium text-[11.5px] mt-0.5 leading-snug">
                           {coord.note}
                         </div>
                       )}

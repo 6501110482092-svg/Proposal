@@ -771,6 +771,7 @@ export default function App() {
                         onUpdateClinicLogo={handleUpdateClinicLogo}
                         allProposals={proposals}
                         onSave={handleManualSave}
+                        onSaveClinics={setClinics}
                         onConvertToStandard={p => {
                           setConvertSourceProposal(p);
                           setIsConvertModalOpen(true);
@@ -844,6 +845,7 @@ export default function App() {
                     onUpdateClinicLogo={handleUpdateClinicLogo}
                     allProposals={proposals}
                     onSave={handleManualSave}
+                    onSaveClinics={setClinics}
                     onConvertToStandard={p => {
                       setConvertSourceProposal(p);
                       setIsConvertModalOpen(true);

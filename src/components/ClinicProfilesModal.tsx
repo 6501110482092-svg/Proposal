@@ -652,6 +652,144 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
                   className="w-full text-sm border border-slate-300 rounded-lg p-3 outline-hidden"
                 />
               </div>
+
+              {/* Default Coordinators Section */}
+              <div className="md:col-span-2 pt-3 border-t border-slate-200">
+                <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                  <div>
+                    <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                      ผู้ประสานงานเริ่มต้นประจำคลินิก (Default Coordinators)
+                    </h4>
+                    <p className="text-[11px] text-slate-500">
+                      เมื่อสร้างใบเสนอราคาใหม่ หรือเลือกคลินิกนี้ ระบบจะดึงรายชื่อผู้ประสานงานชุดนี้ไปใส่ให้อัตโนมัติทันที
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const currentCoords = editingClinic.defaultCoordinators || [];
+                      setEditingClinic({
+                        ...editingClinic,
+                        defaultCoordinators: [
+                          ...currentCoords,
+                          {
+                            id: `coord-${Date.now()}`,
+                            name: '',
+                            phone: '',
+                            email: '',
+                            note: 'เพื่อยืนยันการใช้บริการและสอบถามรายละเอียดเพิ่มเติม',
+                          },
+                        ],
+                      });
+                      setHasChanges(true);
+                    }}
+                    className="text-xs text-purple-700 hover:text-purple-900 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-3 py-1.5 rounded-lg font-semibold flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> เพิ่มผู้ประสานงานเริ่มต้น
+                  </button>
+                </div>
+
+                <div className="space-y-2.5">
+                  {(editingClinic.defaultCoordinators || []).length === 0 ? (
+                    <div className="text-center py-4 bg-slate-50 border border-dashed border-slate-300 rounded-xl text-slate-400 text-xs">
+                      ยังไม่มีรายชื่อผู้ประสานงานเริ่มต้น คลิก "+ เพิ่มผู้ประสานงานเริ่มต้น" เพื่อกำหนด
+                    </div>
+                  ) : (
+                    (editingClinic.defaultCoordinators || []).map((coord, idx) => (
+                      <div
+                        key={coord.id || idx}
+                        className="p-3 bg-slate-50 border border-slate-200 rounded-xl space-y-2"
+                      >
+                        <div className="grid grid-cols-1 sm:grid-cols-12 gap-2 items-center">
+                          <div className="sm:col-span-4">
+                            <label className="block text-[10px] text-slate-500 mb-0.5 font-medium">
+                              ชื่อ-นามสกุล / ชื่อเล่น
+                            </label>
+                            <input
+                              type="text"
+                              value={coord.name}
+                              onChange={e => {
+                                const updated = [...(editingClinic.defaultCoordinators || [])];
+                                updated[idx] = { ...coord, name: e.target.value };
+                                setEditingClinic({ ...editingClinic, defaultCoordinators: updated });
+                                setHasChanges(true);
+                              }}
+                              placeholder="เช่น นายธนภัทร กมลอินทร์(บุ๊ค)"
+                              className="w-full text-xs font-medium border border-slate-300 rounded px-2.5 py-1.5 bg-white outline-hidden focus:ring-1 focus:ring-sky-500"
+                            />
+                          </div>
+                          <div className="sm:col-span-3">
+                            <label className="block text-[10px] text-slate-500 mb-0.5 font-medium">
+                              เบอร์โทรศัพท์ (มีคำว่า โทร: แสดงคู่กัน)
+                            </label>
+                            <input
+                              type="text"
+                              value={coord.phone}
+                              onChange={e => {
+                                const updated = [...(editingClinic.defaultCoordinators || [])];
+                                updated[idx] = { ...coord, phone: e.target.value };
+                                setEditingClinic({ ...editingClinic, defaultCoordinators: updated });
+                                setHasChanges(true);
+                              }}
+                              placeholder="เช่น 0825327878"
+                              className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white outline-hidden focus:ring-1 focus:ring-sky-500"
+                            />
+                          </div>
+                          <div className="sm:col-span-4">
+                            <label className="block text-[10px] text-slate-500 mb-0.5 font-medium">
+                              อีเมล
+                            </label>
+                            <input
+                              type="text"
+                              value={coord.email || ''}
+                              onChange={e => {
+                                const updated = [...(editingClinic.defaultCoordinators || [])];
+                                updated[idx] = { ...coord, email: e.target.value };
+                                setEditingClinic({ ...editingClinic, defaultCoordinators: updated });
+                                setHasChanges(true);
+                              }}
+                              placeholder="เช่น tanapatmedtech@gmail.com"
+                              className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white outline-hidden focus:ring-1 focus:ring-sky-500"
+                            />
+                          </div>
+                          <div className="sm:col-span-1 flex justify-end">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updated = (editingClinic.defaultCoordinators || []).filter((_, i) => i !== idx);
+                                setEditingClinic({ ...editingClinic, defaultCoordinators: updated });
+                                setHasChanges(true);
+                              }}
+                              className="p-1.5 text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg transition cursor-pointer"
+                              title="ลบผู้ประสานงานนี้"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </div>
+
+                        <div>
+                          <label className="block text-[10px] text-slate-500 mb-0.5 font-medium">
+                            ข้อความกำกับ (เช่น เพื่อยืนยันการใช้บริการและสอบถามรายละเอียดเพิ่มเติม)
+                          </label>
+                          <input
+                            type="text"
+                            value={coord.note || ''}
+                            onChange={e => {
+                              const updated = [...(editingClinic.defaultCoordinators || [])];
+                              updated[idx] = { ...coord, note: e.target.value };
+                              setEditingClinic({ ...editingClinic, defaultCoordinators: updated });
+                              setHasChanges(true);
+                            }}
+                            placeholder="เพื่อยืนยันการใช้บริการและสอบถามรายละเอียดเพิ่มเติม"
+                            className="w-full text-xs border border-slate-300 rounded px-2.5 py-1.5 bg-white outline-hidden focus:ring-1 focus:ring-sky-500"
+                          />
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Action buttons */}

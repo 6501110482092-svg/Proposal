@@ -46,6 +46,7 @@ import {
   Check,
   X,
   FileCheck,
+  RotateCcw,
 } from 'lucide-react';
 
 interface ProgramTableNoteFieldProps {
@@ -109,6 +110,7 @@ interface ProposalEditorProps {
   allProposals?: ProposalDocument[];
   onSave?: () => void;
   onConvertToStandard?: (proposal: ProposalDocument) => void;
+  onSaveClinics?: (updatedClinics: ClinicProfile[]) => void;
 }
 
 export const ProposalEditor: React.FC<ProposalEditorProps> = ({
@@ -123,9 +125,11 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   allProposals = [],
   onSave,
   onConvertToStandard,
+  onSaveClinics,
 }) => {
   // Save feedback state
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
+  const [coordinatorSavedMessage, setCoordinatorSavedMessage] = useState<string | null>(null);
 
   const handleSave = () => {
     if (onSave) {
@@ -2963,32 +2967,84 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
             {/* Coordinators List */}
             <div className="pt-3 border-t border-slate-200">
-              <div className="flex items-center justify-between mb-2">
-                <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                  กล่องข้อมูลผู้ประสานงาน (Coordinators Box)
-                </h4>
-                <button
-                  type="button"
-                  onClick={() =>
-                    onChange({
-                      ...proposal,
-                      coordinators: [
-                        ...(proposal.coordinators || []),
-                        {
-                          id: `coord-${Date.now()}`,
-                          name: 'คุณผู้ประสานงานใหม่',
-                          phone: '08X-XXX-XXXX',
-                          email: '',
-                          note: 'เพื่อยืนยันการใช้บริการ',
-                        },
-                      ],
-                    })
-                  }
-                  className="text-xs text-purple-600 hover:text-purple-800 font-semibold flex items-center gap-1"
-                >
-                  <Plus className="w-3.5 h-3.5" /> เพิ่มผู้ประสานงาน
-                </button>
+              <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                <div>
+                  <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                    กล่องข้อมูลผู้ประสานงาน (Coordinators Box)
+                  </h4>
+                  <p className="text-[11px] text-slate-500">
+                    แสดงในส่วนท้ายเอกสารฝั่งขวา (คู่กับช่องลงนามยืนยันการใช้บริการ)
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {currentClinic?.defaultCoordinators && currentClinic.defaultCoordinators.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onChange({
+                          ...proposal,
+                          coordinators: currentClinic.defaultCoordinators.map(c => ({ ...c })),
+                        });
+                        setCoordinatorSavedMessage('ดึงรายชื่อผู้ประสานงานเริ่มต้นจากสมุดคลินิกแล้ว');
+                        setTimeout(() => setCoordinatorSavedMessage(null), 3000);
+                      }}
+                      className="text-xs text-sky-700 hover:text-sky-900 bg-sky-50 hover:bg-sky-100 border border-sky-200 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition cursor-pointer"
+                      title="รีเซ็ตหรือดึงรายชื่อเริ่มต้นจากสมุดคลินิก"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" /> ดึงจากสมุดคลินิก
+                    </button>
+                  )}
+
+                  {onSaveClinics && currentClinic && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const updatedClinics = clinics.map(c =>
+                          c.id === currentClinic.id
+                            ? { ...c, defaultCoordinators: (proposal.coordinators || []).map(coord => ({ ...coord })) }
+                            : c
+                        );
+                        onSaveClinics(updatedClinics);
+                        setCoordinatorSavedMessage(`บันทึกผู้ประสานงานชุดนี้เป็นค่าเริ่มต้นของ "${currentClinic.name}" ในสมุดคลินิกเรียบร้อยแล้ว`);
+                        setTimeout(() => setCoordinatorSavedMessage(null), 3500);
+                      }}
+                      className="text-xs text-emerald-700 hover:text-emerald-900 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition cursor-pointer"
+                      title="บันทึกผู้ประสานงานที่พิมพ์อยู่นี้ ให้เป็นค่าเริ่มต้นของคลินิกในสมุดบริษัท เพื่อไม่ต้องพิมพ์ใหม่อีกในใบเสนอราคาถัดไป"
+                    >
+                      <Check className="w-3.5 h-3.5" /> บันทึกเป็นค่าเริ่มต้นคลินิก
+                    </button>
+                  )}
+
+                  <button
+                    type="button"
+                    onClick={() =>
+                      onChange({
+                        ...proposal,
+                        coordinators: [
+                          ...(proposal.coordinators || []),
+                          {
+                            id: `coord-${Date.now()}`,
+                            name: '',
+                            phone: '',
+                            email: '',
+                            note: 'เพื่อยืนยันการใช้บริการและสอบถามรายละเอียดเพิ่มเติม',
+                          },
+                        ],
+                      })
+                    }
+                    className="text-xs text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-2.5 py-1 rounded-lg font-semibold flex items-center gap-1 transition cursor-pointer"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> เพิ่มผู้ประสานงาน
+                  </button>
+                </div>
               </div>
+
+              {coordinatorSavedMessage && (
+                <div className="mb-2.5 p-2 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs rounded-lg flex items-center gap-1.5 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>{coordinatorSavedMessage}</span>
+                </div>
+              )}
 
               <div className="space-y-3">
                 {proposal.coordinators.map((coord, idx) => (
