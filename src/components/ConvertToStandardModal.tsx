@@ -209,7 +209,7 @@ export const ConvertToStandardModal: React.FC<ConvertToStandardModalProps> = ({
                       <span>{t.name}</span>
                     </div>
                     <div className="text-sm font-extrabold text-purple-700 mt-1">
-                      {perPersonSum > 0 ? `${perPersonSum.toLocaleString()} ฿/คน` : '-'}
+                      {perPersonSum > 0 ? `${perPersonSum.toLocaleString()} ฿/ราย` : '-'}
                     </div>
                     {isMatching && (
                       <div className="text-[10px] text-emerald-700 font-bold mt-0.5">
@@ -229,7 +229,7 @@ export const ConvertToStandardModal: React.FC<ConvertToStandardModalProps> = ({
                 ราคาต่อคน ({tiers.find(t => t.id === selectedTierId)?.name || 'Tier'}):
               </div>
               <div className="text-xl font-extrabold text-sky-400">
-                {currentTierPerPerson.toLocaleString()} ฿/คน
+                {currentTierPerPerson.toLocaleString()} ฿/ราย
               </div>
             </div>
             <div className="text-right">

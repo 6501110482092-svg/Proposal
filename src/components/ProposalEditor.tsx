@@ -1877,9 +1877,9 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                                                   ? 'bg-white text-indigo-900 shadow-2xs font-bold'
                                                   : 'text-slate-600 hover:text-slate-900'
                                               }`}
-                                              title="คิดราคาต่อคน (บาท/คน)"
+                                              title="คิดราคาต่อราย (บาท/ราย)"
                                             >
-                                              ต่อคน
+                                              ต่อราย
                                             </button>
                                             <button
                                               type="button"
@@ -1950,7 +1950,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                                               }}
                                               className="w-16 text-xs font-bold text-indigo-950 text-right border border-indigo-200 rounded px-1 py-0.5 bg-white"
                                             />
-                                            <span className="text-[10px] text-slate-400">฿/คน</span>
+                                            <span className="text-[10px] text-slate-400">฿/ราย</span>
                                           </div>
                                         )}
 
@@ -2337,7 +2337,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                               ? tiers.filter(t => prog.selectedTierIds!.includes(t.id))
                               : tiers.slice(0, 4)
                             ).map(t => {
-                              const tierSum = prog.items.reduce((s, it) => {
+                              const hasFlatRate = prog.items.some(it => {
                                 const test = it.testId ? masterTests.find(m => m.id === it.testId) : null;
                                 const tierType =
                                   it.tierPricingTypes?.[t.id] ||
@@ -2347,30 +2347,50 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                                     : it.pricingType === 'free'
                                     ? 'free'
                                     : 'per-person');
+                                return tierType === 'fixed';
+                              });
 
-                                if (
-                                  tierType === 'free' ||
-                                  tierType === 'fixed' ||
-                                  it.pricingType === 'free' ||
-                                  it.pricingType === 'fixed' ||
-                                  it.pricingType === 'unpriced'
-                                ) {
-                                  return s;
+                              let display = '-';
+                              if (!hasFlatRate) {
+                                const tierSum = prog.items.reduce((s, it) => {
+                                  const test = it.testId ? masterTests.find(m => m.id === it.testId) : null;
+                                  const tierType =
+                                    it.tierPricingTypes?.[t.id] ||
+                                    test?.tierPricingTypes?.[t.id] ||
+                                    (it.pricingType === 'free' ? 'free' : 'per-person');
+
+                                  if (
+                                    tierType === 'free' ||
+                                    it.pricingType === 'free' ||
+                                    it.pricingType === 'unpriced'
+                                  ) {
+                                    return s;
+                                  }
+
+                                  const price =
+                                    it.tierCustomPrices?.[t.id] !== undefined
+                                      ? it.tierCustomPrices[t.id]
+                                      : test?.tierPrices?.[t.id] !== undefined
+                                      ? test.tierPrices[t.id]
+                                      : it.unitPrice;
+                                  return s + (price || 0);
+                                }, 0);
+                                if (tierSum > 0) {
+                                  display = `${tierSum.toLocaleString()} ฿/ราย`;
                                 }
-
-                                const price =
-                                  it.tierCustomPrices?.[t.id] !== undefined
-                                    ? it.tierCustomPrices[t.id]
-                                    : test?.tierPrices?.[t.id] !== undefined
-                                    ? test.tierPrices[t.id]
-                                    : it.unitPrice;
-                                return s + (price || 0);
-                              }, 0);
+                              }
 
                               return (
-                                <div key={t.id} className="bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-xl text-right">
-                                  <span className="block text-[10px] text-indigo-700 font-semibold">{t.name}</span>
-                                  <span className="text-xs font-black text-indigo-950">{tierSum.toLocaleString()} ฿/คน</span>
+                                <div
+                                  key={t.id}
+                                  className="bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-xl text-right"
+                                >
+                                  <span className="block text-[10px] text-indigo-700 font-semibold">
+                                    {t.name}
+                                  </span>
+                                  <span className="text-xs font-black text-indigo-950">
+                                    {hasFlatRate ? '-' : display}
+                                  </span>
                                 </div>
                               );
                             })}

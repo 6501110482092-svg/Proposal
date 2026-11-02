@@ -670,7 +670,7 @@ export const MasterCatalogModal: React.FC<MasterCatalogModalProps> = ({
                                   : 'text-slate-600 hover:text-slate-900'
                               }`}
                             >
-                              ฿/คน
+                              ฿/ราย
                             </button>
                             <button
                               type="button"
@@ -745,7 +745,7 @@ export const MasterCatalogModal: React.FC<MasterCatalogModalProps> = ({
                               className="w-full text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white font-bold text-slate-800"
                             />
                             <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
-                              บาท/คน
+                              บาท/ราย
                             </span>
                           </div>
                         )}

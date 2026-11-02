@@ -211,7 +211,9 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                     className="py-1 px-2 w-18 text-center whitespace-nowrap"
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
-                    {prog.colCountLabel || 'จำนวนคน'}
+                    {prog.colCountLabel && prog.colCountLabel !== 'จำนวนคน'
+                      ? prog.colCountLabel
+                      : 'จำนวน (ราย)'}
                   </th>
                   <th
                     className="py-1 px-2 w-26 text-center whitespace-nowrap"
@@ -503,7 +505,8 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
                 {isTierRate ? (
                   activeTiers.map(t => {
-                    const tierSum = prog.items.reduce((sum, it) => {
+                    // Check if this tier has ANY item with flat rate (เหมาจ่าย)
+                    const hasFlatRate = prog.items.some(it => {
                       const mTest = (masterTests || DEFAULT_MASTER_TESTS).find(m => m.id === it.testId);
                       const tierType =
                         it.tierPricingTypes?.[t.id] ||
@@ -513,14 +516,31 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                           : it.pricingType === 'free'
                           ? 'free'
                           : 'per-person');
+                      return tierType === 'fixed';
+                    });
 
-                      // Skip fixed or free items for per-person total row
-                      if (
-                        tierType === 'free' ||
-                        tierType === 'fixed' ||
-                        it.pricingType === 'free' ||
-                        it.pricingType === 'fixed'
-                      ) {
+                    if (hasFlatRate) {
+                      // If ANY test in this tier is flat rate, display '-'
+                      return (
+                        <td
+                          key={t.id}
+                          className="py-1.5 px-2 text-center text-xs font-bold text-slate-400 whitespace-nowrap"
+                          style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                        >
+                          -
+                        </td>
+                      );
+                    }
+
+                    // No flat rate test in this tier: calculate total per-person/case
+                    const tierSum = prog.items.reduce((sum, it) => {
+                      const mTest = (masterTests || DEFAULT_MASTER_TESTS).find(m => m.id === it.testId);
+                      const tierType =
+                        it.tierPricingTypes?.[t.id] ||
+                        mTest?.tierPricingTypes?.[t.id] ||
+                        (it.pricingType === 'free' ? 'free' : 'per-person');
+
+                      if (tierType === 'free' || it.pricingType === 'free') {
                         return sum;
                       }
 
@@ -530,13 +550,14 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                       }
                       return sum + (p || 0);
                     }, 0);
+
                     return (
                       <td
                         key={t.id}
                         className="py-1.5 px-2 text-center text-xs font-bold text-blue-900 whitespace-nowrap"
                         style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                       >
-                        {tierSum > 0 ? `${tierSum.toLocaleString()} ฿/คน` : '-'}
+                        {tierSum > 0 ? `${tierSum.toLocaleString()} ฿/ราย` : '-'}
                       </td>
                     );
                   })
@@ -552,7 +573,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                       className="py-1 px-2 text-center text-xs text-blue-800 font-bold"
                       style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                     >
-                      {amendedPerPerson > 0 ? `${amendedPerPerson.toLocaleString()} ฿/คน` : '-'}
+                      {amendedPerPerson > 0 ? `${amendedPerPerson.toLocaleString()} ฿/ราย` : '-'}
                     </td>
                   </>
                 ) : (
@@ -560,7 +581,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                     className="py-1 px-2 text-center text-xs font-bold text-blue-900"
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
-                    {standardPerPerson > 0 ? `${standardPerPerson.toLocaleString()} ฿/คน` : '-'}
+                    {standardPerPerson > 0 ? `${standardPerPerson.toLocaleString()} ฿/ราย` : '-'}
                   </td>
                 )}
 
