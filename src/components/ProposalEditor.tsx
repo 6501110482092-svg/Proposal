@@ -3080,41 +3080,60 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       </div>
 
       {/* Test Selector Modal */}
-      {selectorModalProgId && (
-        <TestSelectorModal
-          isOpen={true}
-          onClose={() => setSelectorModalProgId(null)}
-          tests={masterTests}
-          tiers={tiers}
-          headcount={
-            proposal.programs.find(p => p.id === selectorModalProgId)?.defaultHeadcount || 20
-          }
-          existingItemTestIds={
-            proposal.programs
-              .find(p => p.id === selectorModalProgId)
-              ?.items.map(it => it.testId)
-              .filter(Boolean) as string[]
-          }
-          onAddSelectedTests={newItems => {
-            const prog = proposal.programs.find(p => p.id === selectorModalProgId);
-            if (!prog) return;
+      {selectorModalProgId && (() => {
+        const currentProg = proposal.programs.find(p => p.id === selectorModalProgId);
+        const usedTestsMap: Record<string, { programId: string; programTitle: string; isCurrentProgram: boolean }> = {};
 
-            const baseOrder = prog.items.length;
-            const adjustedItems = newItems.map((item, idx) => ({
-              ...item,
-              orderNumber: baseOrder + idx + 1,
-            }));
+        proposal.programs.forEach((prog, pIdx) => {
+          const isCurrent = prog.id === selectorModalProgId;
+          const progTitle = prog.title || `ตารางที่ ${pIdx + 1}`;
+          prog.items.forEach(it => {
+            const usage = {
+              programId: prog.id,
+              programTitle: progTitle,
+              isCurrentProgram: isCurrent,
+            };
+            if (it.testId) {
+              usedTestsMap[it.testId] = usage;
+            }
+            if (it.name) {
+              usedTestsMap[it.name.trim().toLowerCase()] = usage;
+            }
+          });
+        });
 
-            const updatedPrograms = proposal.programs.map(p =>
-              p.id === selectorModalProgId
-                ? { ...p, items: [...p.items, ...adjustedItems] }
-                : p
-            );
+        return (
+          <TestSelectorModal
+            isOpen={true}
+            onClose={() => setSelectorModalProgId(null)}
+            tests={masterTests}
+            tiers={tiers}
+            headcount={currentProg?.defaultHeadcount || 20}
+            currentProgramTitle={currentProg?.title || 'ตารางนี้'}
+            usedTestsMap={usedTestsMap}
+            existingItemTestIds={
+              currentProg?.items.map(it => it.testId).filter(Boolean) as string[]
+            }
+            onAddSelectedTests={newItems => {
+              if (!currentProg) return;
 
-            onChange({ ...proposal, programs: updatedPrograms });
-          }}
-        />
-      )}
+              const baseOrder = currentProg.items.length;
+              const adjustedItems = newItems.map((item, idx) => ({
+                ...item,
+                orderNumber: baseOrder + idx + 1,
+              }));
+
+              const updatedPrograms = proposal.programs.map(p =>
+                p.id === selectorModalProgId
+                  ? { ...p, items: [...p.items, ...adjustedItems] }
+                  : p
+              );
+
+              onChange({ ...proposal, programs: updatedPrograms });
+            }}
+          />
+        );
+      })()}
     </div>
   );
 };
