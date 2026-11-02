@@ -9,7 +9,7 @@ interface DocumentHeaderProps {
   compact?: boolean;
   showDocMeta?: boolean;
   headerStyle?: 'minimal' | 'official';
-  docType?: 'quotation' | 'amendment';
+  docType?: 'quotation' | 'amendment' | 'tier-rate';
   amendmentDocTitle?: string;
 }
 

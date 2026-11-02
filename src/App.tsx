@@ -9,6 +9,7 @@ import {
   MasterTest,
   PriceTier,
   ProposalDocument,
+  ProposalItem,
 } from './types';
 import {
   DEFAULT_CLINICS,
@@ -25,6 +26,7 @@ import { MasterCatalogModal } from './components/MasterCatalogModal';
 import { CloneProposalModal } from './components/CloneProposalModal';
 import { ProposalHistoryModal } from './components/ProposalHistoryModal';
 import { DocumentPickerModal } from './components/DocumentPickerModal';
+import { ConvertToStandardModal } from './components/ConvertToStandardModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { getTodayThaiDate } from './utils/thaiDate';
 import { generateCompanyDocNumber } from './utils/docNumber';
@@ -133,6 +135,8 @@ export default function App() {
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [isDocPickerModalOpen, setIsDocPickerModalOpen] = useState(false);
   const [cloneSourceProposal, setCloneSourceProposal] = useState<ProposalDocument | null>(null);
+  const [isConvertModalOpen, setIsConvertModalOpen] = useState(false);
+  const [convertSourceProposal, setConvertSourceProposal] = useState<ProposalDocument | null>(null);
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving'>('saved');
 
   // Hydrate from IndexedDB on initial mount if available
@@ -447,6 +451,172 @@ export default function App() {
     setViewMode('split');
   };
 
+  // Create Standalone Tier-Rate Proposal (โหมดเสนอราคาลูกค้าใหม่ แบบ 2-4 ช่วงราคา)
+  const handleCreateTierRateProposal = (preferredClinicId?: string) => {
+    const targetClinic =
+      (preferredClinicId ? clinics.find(c => c.id === preferredClinicId) : null) ||
+      clinics[0] ||
+      DEFAULT_CLINICS[0];
+    const newId = `prop-${Date.now()}`;
+    const newDocNo = generateCompanyDocNumber(targetClinic, proposals);
+
+    // Initial 4 tiers
+    const initialSelectedTierIds = tiers.slice(0, 4).map(t => t.id);
+
+    // Initial items populated from master tests with their tier prices
+    const initialItems: ProposalItem[] = masterTests.slice(0, 16).map((test, idx) => ({
+      id: `item-${Date.now()}-${idx + 1}`,
+      orderNumber: idx + 1,
+      name: test.name,
+      testId: test.id,
+      pricingType: test.defaultPricingType || 'tier',
+      unitPrice: test.fixedPrice || 100,
+      headcount: 0,
+      isCustomHeadcount: false,
+      totalPrice: 0,
+      flatRateLabel: test.flatRateLabel || '',
+      tierCustomPrices: { ...test.tierPrices },
+      tierPricingTypes: test.tierPricingTypes ? { ...test.tierPricingTypes } : undefined,
+      tierFlatRateLabels: test.tierFlatRateLabels ? { ...test.tierFlatRateLabels } : undefined,
+    }));
+
+    const newDoc: ProposalDocument = {
+      id: newId,
+      documentNo: newDocNo,
+      docType: 'tier-rate',
+      title: 'ใบเสนอราคาลูกค้าใหม่ (แบบช่วงราคา)',
+      clinicProfileId: targetClinic.id,
+      dateText: getTodayThaiDate('standard'),
+      subject: targetClinic.defaultSubject || 'ขอเสนอโครงการตรวจสุขภาพเคลื่อนที่ ประจำปี 2569',
+      attention: 'ท่านผู้บริหาร **บริษัท ลูกค้าใหม่ จำกัด**',
+      introParagraph: targetClinic.defaultIntroText,
+      programs: [
+        {
+          id: `prog-${Date.now()}-1`,
+          title: 'โปรแกรมสุขภาพ สำหรับพนักงานทั่วไป (แบบช่วงราคา)',
+          defaultHeadcount: 20,
+          colRankLabel: 'ลำดับ',
+          colNameLabel: 'โปรแกรมรายการตรวจสุขภาพสำหรับพนักงาน',
+          colPriceLabel: 'ราคา (บาท)',
+          colCountLabel: 'จำนวนคน',
+          colTotalLabel: 'รวมราคา',
+          items: initialItems,
+          showTotalRow: true,
+          totalRowLabel: 'รวมราคาโปรแกรมรายการตรวจทั่วไปพนักงาน',
+          pageBreakAfter: true,
+          selectedTierIds: initialSelectedTierIds,
+        },
+      ],
+      remarks: [...targetClinic.defaultRemarks],
+      serviceConditions: [...targetClinic.defaultTerms],
+      closingParagraph: targetClinic.defaultClosingText,
+      signer: { ...targetClinic.defaultSigner },
+      clientConfirmation: {
+        show: true,
+        title: 'ยืนยันการใช้บริการ',
+        signatureLabel: 'ลงชื่อ.................................................ผู้รับบริการ',
+        namePlaceholder: '(.................................................)',
+      },
+      coordinators: targetClinic.defaultCoordinators.map(c => ({ ...c })),
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setProposals(prev => [newDoc, ...prev]);
+    setActiveProposalId(newId);
+    setViewMode('split');
+  };
+
+  // Convert Tier-Rate Proposal to Standard Quotation (เมื่อลูกค้าระบุจำนวนคนจริง)
+  const handleConvertTierRateToStandard = (
+    sourceProposal: ProposalDocument,
+    actualHeadcount: number,
+    selectedTierId: string
+  ) => {
+    const newId = `prop-${Date.now()}`;
+    const cleanTitle = (sourceProposal.title || '')
+      .replace(/^\[ช่วงราคา\]\s*/, '')
+      .replace(/แบบช่วงราคา/g, 'ฉบับจริง');
+
+    const convertedPrograms = sourceProposal.programs.map(prog => {
+      const convertedItems = prog.items.map(it => {
+        const test = it.testId ? masterTests.find(m => m.id === it.testId) : null;
+
+        // Check tier-specific pricing type
+        const tierType =
+          it.tierPricingTypes?.[selectedTierId] ||
+          test?.tierPricingTypes?.[selectedTierId] ||
+          (it.pricingType === 'fixed' ? 'fixed' : it.pricingType === 'free' ? 'free' : 'per-person');
+
+        let finalUnitPrice = it.unitPrice;
+        if (it.tierCustomPrices?.[selectedTierId] !== undefined) {
+          finalUnitPrice = it.tierCustomPrices[selectedTierId];
+        } else if (test?.tierPrices?.[selectedTierId] !== undefined) {
+          finalUnitPrice = test.tierPrices[selectedTierId];
+        }
+
+        let calculatedTotal = 0;
+        let pricingType = it.pricingType;
+        let flatRateLabel = it.flatRateLabel;
+
+        if (tierType === 'free' || it.pricingType === 'free') {
+          pricingType = 'free';
+          finalUnitPrice = 0;
+          calculatedTotal = 0;
+          flatRateLabel = 'ฟรี';
+        } else if (tierType === 'fixed' || it.pricingType === 'fixed') {
+          pricingType = 'fixed';
+          calculatedTotal = finalUnitPrice;
+          flatRateLabel =
+            it.tierFlatRateLabels?.[selectedTierId] ||
+            test?.tierFlatRateLabels?.[selectedTierId] ||
+            (finalUnitPrice > 0
+              ? `เหมาจ่าย ${finalUnitPrice.toLocaleString()} บาท`
+              : it.flatRateLabel || 'เหมาจ่าย');
+        } else {
+          pricingType = 'tier';
+          calculatedTotal = finalUnitPrice * actualHeadcount;
+        }
+
+        return {
+          ...it,
+          pricingType,
+          flatRateLabel,
+          unitPrice: finalUnitPrice,
+          headcount: actualHeadcount,
+          isCustomHeadcount: false,
+          totalPrice: calculatedTotal,
+        };
+      });
+
+      return {
+        ...prog,
+        defaultHeadcount: actualHeadcount,
+        items: convertedItems,
+      };
+    });
+
+    const standardDoc: ProposalDocument = {
+      ...JSON.parse(JSON.stringify(sourceProposal)),
+      id: newId,
+      docType: 'quotation',
+      title: `${cleanTitle} (${actualHeadcount} คน)`,
+      documentNo: `${sourceProposal.documentNo}-FINAL`,
+      dateText: getTodayThaiDate('standard'),
+      programs: convertedPrograms,
+      status: 'draft',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    setProposals(prev => [standardDoc, ...prev]);
+    setActiveProposalId(newId);
+    setViewMode('split');
+    setIsConvertModalOpen(false);
+    setConvertSourceProposal(null);
+  };
+
   // Export JSON backup
   const handleExportData = () => {
     const backup = {
@@ -539,6 +709,11 @@ export default function App() {
                 onExportData={handleExportData}
                 onImportData={handleImportData}
                 onCreateAmendment={handleCreateAmendment}
+                onCreateTierRateProposal={handleCreateTierRateProposal}
+                onConvertToStandard={p => {
+                  setConvertSourceProposal(p);
+                  setIsConvertModalOpen(true);
+                }}
               />
             </ErrorBoundary>
           )}
@@ -595,6 +770,10 @@ export default function App() {
                         onUpdateClinicLogo={handleUpdateClinicLogo}
                         allProposals={proposals}
                         onSave={handleManualSave}
+                        onConvertToStandard={p => {
+                          setConvertSourceProposal(p);
+                          setIsConvertModalOpen(true);
+                        }}
                       />
                     </ErrorBoundary>
                   )}
@@ -621,6 +800,8 @@ export default function App() {
                         <PrintableDocument
                           proposal={activeProposal}
                           clinic={activeClinic}
+                          tiers={tiers}
+                          masterTests={masterTests}
                         />
                       </ErrorBoundary>
                     </div>
@@ -662,6 +843,10 @@ export default function App() {
                     onUpdateClinicLogo={handleUpdateClinicLogo}
                     allProposals={proposals}
                     onSave={handleManualSave}
+                    onConvertToStandard={p => {
+                      setConvertSourceProposal(p);
+                      setIsConvertModalOpen(true);
+                    }}
                   />
                 </ErrorBoundary>
               )}
@@ -701,6 +886,8 @@ export default function App() {
                   <PrintableDocument
                     proposal={activeProposal}
                     clinic={activeClinic}
+                    tiers={tiers}
+                    masterTests={masterTests}
                   />
                 </ErrorBoundary>
               )}
@@ -794,8 +981,30 @@ export default function App() {
             }}
             onCreateNew={() => handleCreateNewProposal()}
             onCreateAmendment={handleCreateAmendment}
+            onCreateTierRate={handleCreateTierRateProposal}
+            onConvertToStandard={p => {
+              setConvertSourceProposal(p);
+              setIsConvertModalOpen(true);
+            }}
           />
         </ErrorBoundary>
+
+        {/* 6. Convert Tier-Rate to Standard Quotation Modal */}
+        {isConvertModalOpen && convertSourceProposal && (
+          <ErrorBoundary fallbackTitle="เกิดข้อผิดพลาดในการแปลงใบเสนอราคา">
+            <ConvertToStandardModal
+              isOpen={true}
+              onClose={() => {
+                setIsConvertModalOpen(false);
+                setConvertSourceProposal(null);
+              }}
+              sourceProposal={convertSourceProposal}
+              tiers={tiers}
+              masterTests={masterTests}
+              onConvert={handleConvertTierRateToStandard}
+            />
+          </ErrorBoundary>
+        )}
       </div>
     </ErrorBoundary>
   );

@@ -59,6 +59,7 @@ interface ProposalEditorProps {
   onUpdateClinicLogo?: (clinicId: string, logoUrl: string) => void;
   allProposals?: ProposalDocument[];
   onSave?: () => void;
+  onConvertToStandard?: (proposal: ProposalDocument) => void;
 }
 
 export const ProposalEditor: React.FC<ProposalEditorProps> = ({
@@ -72,6 +73,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
   onUpdateClinicLogo,
   allProposals = [],
   onSave,
+  onConvertToStandard,
 }) => {
   // Save feedback state
   const [saveSuccessMessage, setSaveSuccessMessage] = useState<string | null>(null);
@@ -375,6 +377,40 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
         </div>
       </div>
 
+      {/* Standalone Tier-Rate Banner */}
+      {proposal.docType === 'tier-rate' && (
+        <div className="bg-gradient-to-r from-purple-800 via-indigo-800 to-sky-800 text-white rounded-2xl p-4 shadow-md flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 border border-indigo-400/40">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-white/15 rounded-xl backdrop-blur-xs shrink-0">
+              <Sparkles className="w-6 h-6 text-amber-300" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider bg-amber-400 text-amber-950 px-2 py-0.5 rounded-full">
+                  โหมดเฉพาะกิจ
+                </span>
+                <h2 className="text-base font-bold">
+                  ใบเสนอราคาลูกค้าใหม่ (แบบช่วงราคา)
+                </h2>
+              </div>
+              <p className="text-xs text-indigo-100 mt-0.5">
+                สำหรับส่งเสนอราคาให้ลูกค้าใหม่ที่ยังไม่ทราบจำนวนคนแน่ชัด ตารางแสดงราคา 2, 3 หรือ 4 ช่วงราคาโดยไม่มีช่องจำนวนคนและรวมราคา สรุปราคารวม/คนทุกคอลัมน์
+              </p>
+            </div>
+          </div>
+          {onConvertToStandard && (
+            <button
+              type="button"
+              onClick={() => onConvertToStandard(proposal)}
+              className="px-4 py-2.5 bg-amber-400 hover:bg-amber-300 text-amber-950 rounded-xl font-bold text-xs shadow-md flex items-center gap-2 transition cursor-pointer whitespace-nowrap shrink-0 self-stretch sm:self-auto justify-center"
+            >
+              <Sparkles className="w-4 h-4 text-amber-900" />
+              <span>ทำสำเนาแปลงเป็นใบเสนอราคาจริง</span>
+            </button>
+          )}
+        </div>
+      )}
+
       {/* 1. Header & Clinic Selection */}
       <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
         <div
@@ -641,15 +677,15 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
               </div>
             </div>
 
-            {/* Document Mode Selector: Normal Quotation vs Contract Amendment (User requirement) */}
+            {/* Document Mode Selector: Normal Quotation vs Tier-Rate vs Contract Amendment */}
             <div className="pt-3 border-t border-slate-100">
               <label className="block text-xs font-bold text-slate-800 mb-1.5 flex items-center justify-between">
                 <span>ประเภทเอกสาร & โหมดการทำงาน (Document Mode):</span>
                 <span className="text-[11px] text-slate-500 font-normal">
-                  ใบเสนอราคาปกติ หรือ ใบปรับปรุงสัญญา/รายการและราคา
+                  ใบเสนอราคาปกติ, แบบช่วงราคาลูกค้าใหม่ หรือ ใบปรับปรุงสัญญา
                 </span>
               </label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
                 <button
                   type="button"
                   onClick={() => onChange({ ...proposal, docType: 'quotation' })}
@@ -664,13 +700,56 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                   </div>
                   <div>
                     <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>📄 ใบเสนอราคาปกติ (Quotation)</span>
+                      <span>📄 ใบเสนอราคาปกติ</span>
                       {(!proposal.docType || proposal.docType === 'quotation') && (
                         <span className="text-[10px] text-emerald-700 font-bold bg-emerald-100 px-1.5 py-0.2 rounded">เลือกอยู่</span>
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      หัวเรื่อง "ใบเสนอราคา" แสดงตารางราคาปกติ (ลำดับ, รายการ, ราคา, จำนวนคน, รวมราคา)
+                      มีจำนวนคนแน่นอน แสดงตารางราคามาตรฐานและยอดรวม
+                    </p>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    const defaultTierIds = (tiers && tiers.length > 0 ? tiers : [
+                      { id: 'tier-1', name: '1-20 คน', min: 1, max: 20 },
+                      { id: 'tier-2', name: '21-50 คน', min: 21, max: 50 },
+                      { id: 'tier-3', name: '51-100 คน', min: 51, max: 100 },
+                      { id: 'tier-4', name: '101 คนขึ้นไป', min: 101, max: null },
+                    ]).slice(0, 4).map(t => t.id);
+
+                    const updatedPrograms = proposal.programs.map(prog => ({
+                      ...prog,
+                      selectedTierIds: prog.selectedTierIds && prog.selectedTierIds.length > 0 ? prog.selectedTierIds : defaultTierIds,
+                    }));
+
+                    onChange({
+                      ...proposal,
+                      docType: 'tier-rate',
+                      programs: updatedPrograms,
+                    });
+                  }}
+                  className={`p-3 rounded-xl border text-left transition flex items-start gap-2.5 cursor-pointer ${
+                    proposal.docType === 'tier-rate'
+                      ? 'border-indigo-600 bg-indigo-50/70 shadow-xs ring-1 ring-indigo-500'
+                      : 'border-slate-300 bg-white hover:bg-slate-50'
+                  }`}
+                >
+                  <div className="mt-0.5 p-1 rounded-lg bg-indigo-100 text-indigo-700">
+                    <Layers className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                      <span>📊 ช่วงราคาลูกค้าใหม่</span>
+                      {proposal.docType === 'tier-rate' && (
+                        <span className="text-[10px] text-indigo-700 font-bold bg-indigo-100 px-1.5 py-0.2 rounded">เลือกอยู่</span>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      สำหรับยังไม่รู้จำนวนคน แสดง 2-4 ช่วงราคา สรุปบาท/คนทุกคอลัมน์
                     </p>
                   </div>
                 </button>
@@ -716,13 +795,13 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                   </div>
                   <div>
                     <div className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
-                      <span>📝 ใบปรับปรุงสัญญา (Contract Amendment)</span>
+                      <span>📝 ใบปรับปรุงสัญญา</span>
                       {proposal.docType === 'amendment' && (
                         <span className="text-[10px] text-purple-700 font-bold bg-purple-100 px-1.5 py-0.2 rounded">เลือกอยู่</span>
                       )}
                     </div>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      เปรียบเทียบ "ใบเสนอราคาเดิม" vs "เอกสารปรับปรุง (มี/ไม่มี/ราคาใหม่)" และสรุปยอดราคาใหม่
+                      เปรียบเทียบ "ใบเสนอราคาเดิม" vs "เอกสารปรับปรุง (มี/ไม่มี/ราคาใหม่)"
                     </p>
                   </div>
                 </button>
@@ -1171,44 +1250,80 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                     </div>
 
                     <div className="flex items-center gap-2">
-                      {/* Headcount Input for this program */}
-                      <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-2.5 py-1 shadow-2xs">
-                        <Users className="w-4 h-4 text-slate-500" />
-                        <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
-                          จำนวนคน:
-                        </span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={prog.defaultHeadcount}
-                          onChange={e => {
-                            const val = parseInt(e.target.value, 10) || 0;
-                            const recalculated = recalculateProgramTiers(prog, val);
-                            const updated = proposal.programs.map(p =>
-                              p.id === prog.id ? recalculated : p
-                            );
-                            onChange({ ...proposal, programs: updated });
-                          }}
-                          className="w-16 font-bold text-sm text-sky-900 border-none outline-hidden text-center"
-                        />
-                        <span className="text-xs text-slate-500">คน</span>
-                      </div>
+                      {/* Controls for this program */}
+                      {proposal.docType === 'tier-rate' ? (
+                        <div className="flex items-center gap-1.5 bg-indigo-50 border border-indigo-200 rounded-xl px-2.5 py-1 shadow-2xs">
+                          <Layers className="w-4 h-4 text-indigo-600" />
+                          <span className="text-xs font-bold text-indigo-900 whitespace-nowrap">
+                            จำนวนช่วงราคา:
+                          </span>
+                          <div className="flex items-center gap-1">
+                            {[2, 3, 4].map(count => {
+                              const activeCount = prog.selectedTierIds ? prog.selectedTierIds.length : 4;
+                              const isCurrent = activeCount === count;
+                              return (
+                                <button
+                                  key={count}
+                                  type="button"
+                                  onClick={() => {
+                                    const newIds = tiers.slice(0, count).map(t => t.id);
+                                    const updated = proposal.programs.map(p =>
+                                      p.id === prog.id ? { ...p, selectedTierIds: newIds } : p
+                                    );
+                                    onChange({ ...proposal, programs: updated });
+                                  }}
+                                  className={`text-xs px-2.5 py-0.5 rounded-lg font-bold transition cursor-pointer ${
+                                    isCurrent
+                                      ? 'bg-indigo-600 text-white shadow-2xs'
+                                      : 'bg-white text-indigo-700 border border-indigo-200 hover:bg-indigo-100'
+                                  }`}
+                                >
+                                  {count} ช่วง
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ) : (
+                        <>
+                          <div className="flex items-center gap-1.5 bg-white border border-slate-300 rounded-xl px-2.5 py-1 shadow-2xs">
+                            <Users className="w-4 h-4 text-slate-500" />
+                            <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                              จำนวนคน:
+                            </span>
+                            <input
+                              type="number"
+                              min="0"
+                              value={prog.defaultHeadcount}
+                              onChange={e => {
+                                const val = parseInt(e.target.value, 10) || 0;
+                                const recalculated = recalculateProgramTiers(prog, val);
+                                const updated = proposal.programs.map(p =>
+                                  p.id === prog.id ? recalculated : p
+                                );
+                                onChange({ ...proposal, programs: updated });
+                              }}
+                              className="w-16 font-bold text-sm text-sky-900 border-none outline-hidden text-center"
+                            />
+                            <span className="text-xs text-slate-500">คน</span>
+                          </div>
 
-                      {/* Recalculate button */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const recalculated = recalculateProgramTiers(prog, prog.defaultHeadcount);
-                          const updated = proposal.programs.map(p =>
-                            p.id === prog.id ? recalculated : p
-                          );
-                          onChange({ ...proposal, programs: updated });
-                        }}
-                        className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl transition"
-                        title="คำนวณราคาตามช่วงจำนวนคนใหม่ทันที"
-                      >
-                        <RefreshCw className="w-4 h-4" />
-                      </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const recalculated = recalculateProgramTiers(prog, prog.defaultHeadcount);
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? recalculated : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-300 rounded-xl transition cursor-pointer"
+                            title="คำนวณราคาตามช่วงจำนวนคนใหม่ทันที"
+                          >
+                            <RefreshCw className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
 
                       {/* Remove Program with safe inline confirmation */}
                       {proposal.programs.length > 1 && (
@@ -1244,64 +1359,176 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                     </div>
                   </div>
 
-                  {/* Tier status indicator */}
-                  <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 bg-emerald-50/70 border border-emerald-200 rounded-xl px-3 py-1.5 gap-2">
-                    <span className="flex items-center gap-1.5">
-                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                      ช่วงราคาที่ตรงกับ {prog.defaultHeadcount} คน:{' '}
-                      <strong className="text-emerald-950 font-bold">{activeTier.name}</strong>
-                    </span>
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const testMap = new Map<string, MasterTest>();
-                          masterTests.forEach(t => testMap.set(t.id, t));
-                          const updatedItems = prog.items.map(item => {
-                            let matched = item.testId ? testMap.get(item.testId) : undefined;
-                            if (!matched) {
-                              const norm = (item.name || '').replace(/[\r\n\s]+/g, ' ').trim();
-                              matched = masterTests.find(
-                                t => (t.name || '').replace(/[\r\n\s]+/g, ' ').trim() === norm
-                              );
-                            }
-                            if (matched && matched.name) {
-                              return {
-                                ...item,
-                                testId: matched.id,
-                                name: matched.name,
-                                flatRateLabel: matched.flatRateLabel || item.flatRateLabel,
-                              };
-                            }
-                            return item;
-                          });
-                          const updated = proposal.programs.map(p =>
-                            p.id === prog.id ? { ...p, items: updatedItems } : p
+                  {/* Tier status indicator / Selection for tier-rate mode */}
+                  {proposal.docType === 'tier-rate' ? (
+                    <div className="flex flex-wrap items-center justify-between text-xs text-slate-700 bg-indigo-50/70 border border-indigo-200 rounded-xl p-3 gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-bold text-indigo-950 flex items-center gap-1">
+                          <Layers className="w-4 h-4 text-indigo-700" />
+                          เลือกช่วงราคาที่จะเสนอ:
+                        </span>
+                        {tiers.map(t => {
+                          const currentTiers = prog.selectedTierIds || tiers.slice(0, 4).map(x => x.id);
+                          const isChecked = currentTiers.includes(t.id);
+                          return (
+                            <button
+                              key={t.id}
+                              type="button"
+                              onClick={() => {
+                                let updatedTiers: string[];
+                                if (isChecked) {
+                                  if (currentTiers.length <= 1) return;
+                                  updatedTiers = currentTiers.filter(id => id !== t.id);
+                                } else {
+                                  updatedTiers = [...currentTiers, t.id];
+                                }
+                                const updated = proposal.programs.map(p =>
+                                  p.id === prog.id ? { ...p, selectedTierIds: updatedTiers } : p
+                                );
+                                onChange({ ...proposal, programs: updated });
+                              }}
+                              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border font-semibold cursor-pointer transition ${
+                                isChecked
+                                  ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs'
+                                  : 'bg-white text-slate-600 border-slate-300 hover:bg-slate-50'
+                              }`}
+                            >
+                              <span>{isChecked ? '✓' : '+'}</span>
+                              <span>{t.name}</span>
+                            </button>
                           );
-                          onChange({ ...proposal, programs: updated });
-                        }}
-                        className="text-sky-700 hover:text-sky-900 text-xs font-semibold bg-white hover:bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-300 flex items-center gap-1 cursor-pointer transition shadow-2xs"
-                        title="อัปเดตชื่อรายการตรวจและการจัดบรรทัดตามที่แก้ไขไว้ในคลัง"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5 text-sky-600" />
-                        ซิงค์ชื่อรายการตรวจจากคลัง
-                      </button>
-                      <button
-                        type="button"
-                        onClick={onOpenMasterCatalog}
-                        className="text-emerald-700 hover:text-emerald-900 underline font-medium"
-                      >
-                        ดู/แก้ไข 4 ช่วงราคา
-                      </button>
+                        })}
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={onOpenMasterCatalog}
+                          className="text-indigo-700 hover:text-indigo-900 underline font-medium cursor-pointer"
+                        >
+                          แก้ไขชื่อ/เงื่อนไข 4 ช่วงราคาในคลัง
+                        </button>
+                      </div>
                     </div>
-                  </div>
+                  ) : (
+                    <div className="flex flex-wrap items-center justify-between text-xs text-slate-600 bg-emerald-50/70 border border-emerald-200 rounded-xl px-3 py-1.5 gap-2">
+                      <span className="flex items-center gap-1.5">
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                        ช่วงราคาที่ตรงกับ {prog.defaultHeadcount} คน:{' '}
+                        <strong className="text-emerald-950 font-bold">{activeTier.name}</strong>
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const testMap = new Map<string, MasterTest>();
+                            masterTests.forEach(t => testMap.set(t.id, t));
+                            const updatedItems = prog.items.map(item => {
+                              let matched = item.testId ? testMap.get(item.testId) : undefined;
+                              if (!matched) {
+                                const norm = (item.name || '').replace(/[\r\n\s]+/g, ' ').trim();
+                                matched = masterTests.find(
+                                  t => (t.name || '').replace(/[\r\n\s]+/g, ' ').trim() === norm
+                                );
+                              }
+                              if (matched && matched.name) {
+                                return {
+                                  ...item,
+                                  testId: matched.id,
+                                  name: matched.name,
+                                  flatRateLabel: matched.flatRateLabel || item.flatRateLabel,
+                                };
+                              }
+                              return item;
+                            });
+                            const updated = proposal.programs.map(p =>
+                              p.id === prog.id ? { ...p, items: updatedItems } : p
+                            );
+                            onChange({ ...proposal, programs: updated });
+                          }}
+                          className="text-sky-700 hover:text-sky-900 text-xs font-semibold bg-white hover:bg-sky-50 px-2.5 py-1 rounded-lg border border-sky-300 flex items-center gap-1 cursor-pointer transition shadow-2xs"
+                          title="อัปเดตชื่อรายการตรวจและการจัดบรรทัดตามที่แก้ไขไว้ในคลัง"
+                        >
+                          <RefreshCw className="w-3.5 h-3.5 text-sky-600" />
+                          ซิงค์ชื่อรายการตรวจจากคลัง
+                        </button>
+                        <button
+                          type="button"
+                          onClick={onOpenMasterCatalog}
+                          className="text-emerald-700 hover:text-emerald-900 underline font-medium"
+                        >
+                          ดู/แก้ไข 4 ช่วงราคา
+                        </button>
+                      </div>
+                    </div>
+                  )}
 
                   {/* Customizable Column Headers Row */}
                   <div className="bg-white p-3 rounded-xl border border-slate-200">
                     <span className="block text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1.5">
                       ปรับแต่งข้อความหัวตาราง (สามารถพิมพ์แก้ไขคำได้ตามต้องการ):
                     </span>
-                    {proposal.docType === 'amendment' ? (
+                    {proposal.docType === 'tier-rate' ? (
+                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 1 (ลำดับ)</label>
+                          <input
+                            type="text"
+                            value={prog.colRankLabel || 'ลำดับ'}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colRankLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        <div className="sm:col-span-2">
+                          <label className="block text-[10px] text-slate-500">คอลัมน์ 2 (ชื่อรายการ)</label>
+                          <input
+                            type="text"
+                            value={prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพสำหรับพนักงาน'}
+                            onChange={e => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, colNameLabel: e.target.value } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                          />
+                        </div>
+                        {(prog.selectedTierIds && prog.selectedTierIds.length > 0
+                          ? tiers.filter(t => prog.selectedTierIds!.includes(t.id))
+                          : tiers.slice(0, 4)
+                        ).map((t, tIdx) => {
+                          const customLabel = prog.tierColumnLabels?.[t.id] !== undefined
+                            ? prog.tierColumnLabels[t.id]
+                            : t.name;
+                          return (
+                            <div key={t.id}>
+                              <label className="block text-[10px] text-indigo-700 font-bold truncate">
+                                ช่วงที่ {tIdx + 1} ({t.name})
+                              </label>
+                              <input
+                                type="text"
+                                value={customLabel}
+                                onChange={e => {
+                                  const updatedLabels = {
+                                    ...(prog.tierColumnLabels || {}),
+                                    [t.id]: e.target.value,
+                                  };
+                                  const updated = proposal.programs.map(p =>
+                                    p.id === prog.id ? { ...p, tierColumnLabels: updatedLabels } : p
+                                  );
+                                  onChange({ ...proposal, programs: updated });
+                                }}
+                                className="w-full text-xs border border-indigo-300 rounded px-2 py-1 font-semibold bg-indigo-50/50"
+                              />
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : proposal.docType === 'amendment' ? (
                       <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
                         <div>
                           <label className="block text-[10px] text-slate-500">คอลัมน์ 1 (ลำดับ)</label>
@@ -1528,138 +1755,424 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                           </div>
 
                           {/* Pricing Type & Headcount Controls */}
-                          <div className="flex flex-wrap items-center gap-2">
-                            {/* Pricing Type selector */}
-                            <select
-                              value={item.pricingType}
-                              onChange={e => {
-                                const newType = e.target.value as any;
-                                let newUnit = item.unitPrice;
-                                let flatLabel = item.flatRateLabel;
+                          {proposal.docType === 'tier-rate' ? (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Pricing Type selector */}
+                              <select
+                                value={item.pricingType}
+                                onChange={e => {
+                                  const newType = e.target.value as any;
+                                  let newUnit = item.unitPrice;
+                                  let flatLabel = item.flatRateLabel;
 
-                                if (newType === 'free') {
-                                  newUnit = 0;
-                                  flatLabel = 'ฟรี';
-                                } else if (newType === 'fixed') {
-                                  flatLabel = flatLabel || 'เหมาจ่าย';
-                                }
+                                  if (newType === 'free') {
+                                    newUnit = 0;
+                                    flatLabel = 'ฟรี';
+                                  } else if (newType === 'fixed') {
+                                    flatLabel = flatLabel || 'เหมาจ่าย';
+                                  }
 
-                                handleUpdateItem(prog.id, item.id, {
-                                  pricingType: newType,
-                                  unitPrice: newUnit,
-                                  flatRateLabel: flatLabel,
-                                });
-                              }}
-                              className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-slate-50 font-semibold"
-                            >
-                              <option value="tier">ตามช่วงราคา ({activeTier.name})</option>
-                              <option value="fixed">เหมาจ่าย (Flat rate)</option>
-                              <option value="free">ตรวจฟรี / รวมในแพ็กเกจ</option>
-                              <option value="unpriced">ตรวจเพิ่ม (ไม่คูณคน)</option>
-                            </select>
-
-                            {/* Flat rate label if fixed */}
-                            {item.pricingType === 'fixed' && (
-                              <input
-                                type="text"
-                                placeholder="เหมาจ่าย 12,000 บาท"
-                                value={item.flatRateLabel || ''}
-                                onChange={e =>
                                   handleUpdateItem(prog.id, item.id, {
-                                    flatRateLabel: e.target.value,
-                                  })
-                                }
-                                className="w-36 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-amber-50 text-amber-900 font-semibold"
-                              />
-                            )}
+                                    pricingType: newType,
+                                    unitPrice: newUnit,
+                                    flatRateLabel: flatLabel,
+                                  });
+                                }}
+                                className="text-xs border border-indigo-200 rounded-lg px-2 py-1 bg-indigo-50 font-semibold text-indigo-900"
+                              >
+                                <option value="tier">ตามช่วงราคา (แต่ละช่วงราคา)</option>
+                                <option value="fixed">เหมาจ่าย (Flat rate ทุกช่วง)</option>
+                                <option value="free">ตรวจฟรี / รวมในแพ็กเกจ</option>
+                                <option value="unpriced">ไม่มีราคา (-)</option>
+                              </select>
 
-                            {/* Unit Price Input */}
-                            {item.pricingType !== 'free' && (
-                              <div className="flex items-center gap-1">
-                                <span className="text-[11px] text-slate-500">ราคา:</span>
+                              {/* Flat rate label if fixed */}
+                              {item.pricingType === 'fixed' && (
+                                <input
+                                  type="text"
+                                  placeholder="เหมาจ่าย 4,500 บาท"
+                                  value={item.flatRateLabel || ''}
+                                  onChange={e =>
+                                    handleUpdateItem(prog.id, item.id, {
+                                      flatRateLabel: e.target.value,
+                                    })
+                                  }
+                                  className="w-36 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-amber-50 text-amber-900 font-semibold"
+                                />
+                              )}
+
+                              {item.pricingType === 'free' && (
+                                <span className="text-xs font-bold text-sky-700 bg-sky-50 px-2 py-1 rounded-lg border border-sky-200">
+                                  ฟรี ทุกช่วงราคา
+                                </span>
+                              )}
+
+                              {item.pricingType === 'unpriced' && (
+                                <span className="text-xs text-slate-400 font-medium">
+                                  ไม่ระบุราคา (-)
+                                </span>
+                              )}
+
+                              {/* Per-tier Price Inputs */}
+                              {item.pricingType === 'tier' && (
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {(prog.selectedTierIds && prog.selectedTierIds.length > 0
+                                    ? tiers.filter(t => prog.selectedTierIds!.includes(t.id))
+                                    : tiers.slice(0, 4)
+                                  ).map(t => {
+                                    const test = item.testId
+                                      ? masterTests.find(m => m.id === item.testId)
+                                      : null;
+                                    const tierType =
+                                      item.tierPricingTypes?.[t.id] ||
+                                      test?.tierPricingTypes?.[t.id] ||
+                                      'per-person';
+
+                                    const currentPrice =
+                                      item.tierCustomPrices?.[t.id] !== undefined
+                                        ? item.tierCustomPrices[t.id]
+                                        : test?.tierPrices?.[t.id] !== undefined
+                                        ? test.tierPrices[t.id]
+                                        : item.unitPrice;
+
+                                    const currentFlatLabel =
+                                      item.tierFlatRateLabels?.[t.id] !== undefined
+                                        ? item.tierFlatRateLabels[t.id]
+                                        : test?.tierFlatRateLabels?.[t.id] !== undefined
+                                        ? test.tierFlatRateLabels[t.id]
+                                        : currentPrice > 0
+                                        ? `เหมาจ่าย ${currentPrice.toLocaleString()} บาท`
+                                        : 'เหมาจ่าย';
+
+                                    return (
+                                      <div
+                                        key={t.id}
+                                        className={`flex flex-col p-1.5 rounded-lg border text-xs transition ${
+                                          tierType === 'fixed'
+                                            ? 'bg-amber-50/70 border-amber-300'
+                                            : tierType === 'free'
+                                            ? 'bg-emerald-50/70 border-emerald-300'
+                                            : 'bg-slate-50 border-slate-200'
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between gap-1 mb-1">
+                                          <span className="text-[10px] font-bold text-slate-700 truncate max-w-[85px]">
+                                            {t.name}
+                                          </span>
+                                          {/* Mode selector: ต่อคน / เหมา / ฟรี */}
+                                          <div className="flex rounded bg-slate-200/80 p-0.5 text-[9px] font-bold">
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const updatedTypes = {
+                                                  ...(item.tierPricingTypes || {}),
+                                                  [t.id]: 'per-person' as const,
+                                                };
+                                                handleUpdateItem(prog.id, item.id, {
+                                                  tierPricingTypes: updatedTypes,
+                                                });
+                                              }}
+                                              className={`px-1 py-0.2 rounded transition cursor-pointer ${
+                                                tierType === 'per-person'
+                                                  ? 'bg-white text-indigo-900 shadow-2xs font-bold'
+                                                  : 'text-slate-600 hover:text-slate-900'
+                                              }`}
+                                              title="คิดราคาต่อคน (บาท/คน)"
+                                            >
+                                              ต่อคน
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const updatedTypes = {
+                                                  ...(item.tierPricingTypes || {}),
+                                                  [t.id]: 'fixed' as const,
+                                                };
+                                                const updatedLabels = {
+                                                  ...(item.tierFlatRateLabels || {}),
+                                                  [t.id]:
+                                                    currentFlatLabel ||
+                                                    `เหมาจ่าย ${Number(
+                                                      currentPrice || 4500
+                                                    ).toLocaleString()} บาท`,
+                                                };
+                                                handleUpdateItem(prog.id, item.id, {
+                                                  tierPricingTypes: updatedTypes,
+                                                  tierFlatRateLabels: updatedLabels,
+                                                });
+                                              }}
+                                              className={`px-1 py-0.2 rounded transition cursor-pointer ${
+                                                tierType === 'fixed'
+                                                  ? 'bg-amber-500 text-white shadow-2xs font-bold'
+                                                  : 'text-slate-600 hover:text-slate-900'
+                                              }`}
+                                              title="เหมาจ่าย (Flat rate)"
+                                            >
+                                              เหมา
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => {
+                                                const updatedTypes = {
+                                                  ...(item.tierPricingTypes || {}),
+                                                  [t.id]: 'free' as const,
+                                                };
+                                                handleUpdateItem(prog.id, item.id, {
+                                                  tierPricingTypes: updatedTypes,
+                                                });
+                                              }}
+                                              className={`px-1 py-0.2 rounded transition cursor-pointer ${
+                                                tierType === 'free'
+                                                  ? 'bg-emerald-600 text-white shadow-2xs font-bold'
+                                                  : 'text-slate-600 hover:text-slate-900'
+                                              }`}
+                                              title="ตรวจฟรี / รวมในแพ็กเกจ"
+                                            >
+                                              ฟรี
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {tierType === 'per-person' && (
+                                          <div className="flex items-center gap-1">
+                                            <input
+                                              type="number"
+                                              value={currentPrice}
+                                              onChange={e => {
+                                                const val = parseFloat(e.target.value) || 0;
+                                                const newCustom = {
+                                                  ...(item.tierCustomPrices || {}),
+                                                  [t.id]: val,
+                                                };
+                                                handleUpdateItem(prog.id, item.id, {
+                                                  tierCustomPrices: newCustom,
+                                                });
+                                              }}
+                                              className="w-16 text-xs font-bold text-indigo-950 text-right border border-indigo-200 rounded px-1 py-0.5 bg-white"
+                                            />
+                                            <span className="text-[10px] text-slate-400">฿/คน</span>
+                                          </div>
+                                        )}
+
+                                        {tierType === 'fixed' && (
+                                          <div className="space-y-1">
+                                            <div className="flex items-center gap-1">
+                                              <input
+                                                type="number"
+                                                placeholder="ยอดเงิน"
+                                                value={currentPrice || ''}
+                                                onChange={e => {
+                                                  const val = parseFloat(e.target.value) || 0;
+                                                  const newCustom = {
+                                                    ...(item.tierCustomPrices || {}),
+                                                    [t.id]: val,
+                                                  };
+                                                  const newLabels = {
+                                                    ...(item.tierFlatRateLabels || {}),
+                                                    [t.id]:
+                                                      val > 0
+                                                        ? `เหมาจ่าย ${val.toLocaleString()} บาท`
+                                                        : 'เหมาจ่าย',
+                                                  };
+                                                  handleUpdateItem(prog.id, item.id, {
+                                                    tierCustomPrices: newCustom,
+                                                    tierFlatRateLabels: newLabels,
+                                                  });
+                                                }}
+                                                className="w-16 text-xs font-bold text-amber-900 text-right border border-amber-300 rounded px-1 py-0.5 bg-white"
+                                              />
+                                              <span className="text-[10px] text-amber-700">฿</span>
+                                            </div>
+                                            <input
+                                              type="text"
+                                              value={currentFlatLabel}
+                                              placeholder="เหมาจ่าย..."
+                                              onChange={e => {
+                                                const newLabels = {
+                                                  ...(item.tierFlatRateLabels || {}),
+                                                  [t.id]: e.target.value,
+                                                };
+                                                handleUpdateItem(prog.id, item.id, {
+                                                  tierFlatRateLabels: newLabels,
+                                                });
+                                              }}
+                                              className="w-28 text-[10px] font-semibold text-amber-900 border border-amber-200 rounded px-1 py-0.5 bg-white"
+                                            />
+                                          </div>
+                                        )}
+
+                                        {tierType === 'free' && (
+                                          <div className="text-[10px] text-emerald-700 font-bold bg-emerald-100/60 rounded px-1 py-0.5 text-center">
+                                            ฟรี
+                                          </div>
+                                        )}
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              )}
+
+                              {/* Reorder & Delete */}
+                              <div className="flex items-center gap-0.5 ml-auto">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(prog.id, itemIdx, 'up')}
+                                  disabled={itemIdx === 0}
+                                  className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                                >
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(prog.id, itemIdx, 'down')}
+                                  disabled={itemIdx === prog.items.length - 1}
+                                  className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30 cursor-pointer"
+                                >
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(prog.id, item.id)}
+                                  className="p-1 text-red-400 hover:text-red-600 rounded cursor-pointer"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="flex flex-wrap items-center gap-2">
+                              {/* Pricing Type selector */}
+                              <select
+                                value={item.pricingType}
+                                onChange={e => {
+                                  const newType = e.target.value as any;
+                                  let newUnit = item.unitPrice;
+                                  let flatLabel = item.flatRateLabel;
+
+                                  if (newType === 'free') {
+                                    newUnit = 0;
+                                    flatLabel = 'ฟรี';
+                                  } else if (newType === 'fixed') {
+                                    flatLabel = flatLabel || 'เหมาจ่าย';
+                                  }
+
+                                  handleUpdateItem(prog.id, item.id, {
+                                    pricingType: newType,
+                                    unitPrice: newUnit,
+                                    flatRateLabel: flatLabel,
+                                  });
+                                }}
+                                className="text-xs border border-slate-200 rounded-lg px-2 py-1 bg-slate-50 font-semibold"
+                              >
+                                <option value="tier">ตามช่วงราคา ({activeTier.name})</option>
+                                <option value="fixed">เหมาจ่าย (Flat rate)</option>
+                                <option value="free">ตรวจฟรี / รวมในแพ็กเกจ</option>
+                                <option value="unpriced">ตรวจเพิ่ม (ไม่คูณคน)</option>
+                              </select>
+
+                              {/* Flat rate label if fixed */}
+                              {item.pricingType === 'fixed' && (
+                                <input
+                                  type="text"
+                                  placeholder="เหมาจ่าย 12,000 บาท"
+                                  value={item.flatRateLabel || ''}
+                                  onChange={e =>
+                                    handleUpdateItem(prog.id, item.id, {
+                                      flatRateLabel: e.target.value,
+                                    })
+                                  }
+                                  className="w-36 text-xs border border-amber-300 rounded-lg px-2 py-1 bg-amber-50 text-amber-900 font-semibold"
+                                />
+                              )}
+
+                              {/* Unit Price Input */}
+                              {item.pricingType !== 'free' && (
+                                <div className="flex items-center gap-1">
+                                  <span className="text-[11px] text-slate-500">ราคา:</span>
+                                  <input
+                                    type="number"
+                                    value={item.unitPrice}
+                                    onChange={e =>
+                                      handleUpdateItem(prog.id, item.id, {
+                                        unitPrice: parseFloat(e.target.value) || 0,
+                                      })
+                                    }
+                                    className="w-20 text-xs border border-slate-200 rounded-lg px-2 py-1 text-right font-medium"
+                                  />
+                                  <span className="text-[11px] text-slate-500">฿</span>
+                                </div>
+                              )}
+
+                              {/* Custom Headcount Toggle */}
+                              <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
+                                <label className="text-[11px] text-slate-600 flex items-center gap-1 cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    checked={item.isCustomHeadcount}
+                                    onChange={e =>
+                                      handleUpdateItem(prog.id, item.id, {
+                                        isCustomHeadcount: e.target.checked,
+                                        headcount: e.target.checked ? item.headcount : prog.defaultHeadcount,
+                                      })
+                                    }
+                                    className="rounded text-sky-600 w-3.5 h-3.5"
+                                  />
+                                  <span>คนแยก:</span>
+                                </label>
                                 <input
                                   type="number"
-                                  value={item.unitPrice}
+                                  disabled={!item.isCustomHeadcount}
+                                  value={item.headcount}
                                   onChange={e =>
                                     handleUpdateItem(prog.id, item.id, {
-                                      unitPrice: parseFloat(e.target.value) || 0,
+                                      headcount: parseInt(e.target.value, 10) || 0,
                                     })
                                   }
-                                  className="w-20 text-xs border border-slate-200 rounded-lg px-2 py-1 text-right font-medium"
+                                  className={`w-14 text-xs rounded px-1.5 py-0.5 text-center font-bold ${
+                                    item.isCustomHeadcount
+                                      ? 'bg-white border border-sky-300 text-sky-900'
+                                      : 'bg-transparent border-none text-slate-500'
+                                  }`}
                                 />
-                                <span className="text-[11px] text-slate-500">฿</span>
                               </div>
-                            )}
 
-                            {/* Custom Headcount Toggle */}
-                            <div className="flex items-center gap-1 bg-slate-100 rounded-lg p-1 text-xs">
-                              <label className="text-[11px] text-slate-600 flex items-center gap-1 cursor-pointer">
-                                <input
-                                  type="checkbox"
-                                  checked={item.isCustomHeadcount}
-                                  onChange={e =>
-                                    handleUpdateItem(prog.id, item.id, {
-                                      isCustomHeadcount: e.target.checked,
-                                      headcount: e.target.checked ? item.headcount : prog.defaultHeadcount,
-                                    })
-                                  }
-                                  className="rounded text-sky-600 w-3.5 h-3.5"
-                                />
-                                <span>คนแยก:</span>
-                              </label>
-                              <input
-                                type="number"
-                                disabled={!item.isCustomHeadcount}
-                                value={item.headcount}
-                                onChange={e =>
-                                  handleUpdateItem(prog.id, item.id, {
-                                    headcount: parseInt(e.target.value, 10) || 0,
-                                  })
-                                }
-                                className={`w-14 text-xs rounded px-1.5 py-0.5 text-center font-bold ${
-                                  item.isCustomHeadcount
-                                    ? 'bg-white border border-sky-300 text-sky-900'
-                                    : 'bg-transparent border-none text-slate-500'
-                                }`}
-                              />
-                            </div>
+                              {/* Subtotal */}
+                              <div className="min-w-[80px] text-right font-bold text-slate-900 text-xs">
+                                {item.pricingType === 'free'
+                                  ? 'ฟรี'
+                                  : item.pricingType === 'unpriced'
+                                  ? '-'
+                                  : `${(item.totalPrice || 0).toLocaleString()} ฿`}
+                              </div>
 
-                            {/* Subtotal */}
-                            <div className="min-w-[80px] text-right font-bold text-slate-900 text-xs">
-                              {item.pricingType === 'free'
-                                ? 'ฟรี'
-                                : item.pricingType === 'unpriced'
-                                ? '-'
-                                : `${(item.totalPrice || 0).toLocaleString()} ฿`}
+                              {/* Reorder & Delete */}
+                              <div className="flex items-center gap-0.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(prog.id, itemIdx, 'up')}
+                                  disabled={itemIdx === 0}
+                                  className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                                >
+                                  <ChevronUp className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleMoveItem(prog.id, itemIdx, 'down')}
+                                  disabled={itemIdx === prog.items.length - 1}
+                                  className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
+                                >
+                                  <ChevronDown className="w-3.5 h-3.5" />
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteItem(prog.id, item.id)}
+                                  className="p-1 text-red-400 hover:text-red-600 rounded"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </div>
                             </div>
-
-                            {/* Reorder & Delete */}
-                            <div className="flex items-center gap-0.5">
-                              <button
-                                type="button"
-                                onClick={() => handleMoveItem(prog.id, itemIdx, 'up')}
-                                disabled={itemIdx === 0}
-                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
-                              >
-                                <ChevronUp className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleMoveItem(prog.id, itemIdx, 'down')}
-                                disabled={itemIdx === prog.items.length - 1}
-                                className="p-1 text-slate-400 hover:text-slate-700 disabled:opacity-30"
-                              >
-                                <ChevronDown className="w-3.5 h-3.5" />
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteItem(prog.id, item.id)}
-                                className="p-1 text-red-400 hover:text-red-600 rounded"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </div>
-                          </div>
+                          )}
                         </div>
 
                         {/* Amendment Mode Controls (โหมดปรับปรุงสัญญา: มี/ไม่มี, ราคาเดิม vs ราคาใหม่) */}
@@ -1818,12 +2331,58 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                       </label>
 
                       {prog.showTotalRow && (
-                        <div className="text-right">
-                          <span className="text-xs text-slate-500 mr-2">ยอดรวม:</span>
-                          <span className="text-base font-bold text-emerald-700">
-                            {programTotal.toLocaleString()} บาท
-                          </span>
-                        </div>
+                        proposal.docType === 'tier-rate' ? (
+                          <div className="flex flex-wrap items-center justify-end gap-2">
+                            {(prog.selectedTierIds && prog.selectedTierIds.length > 0
+                              ? tiers.filter(t => prog.selectedTierIds!.includes(t.id))
+                              : tiers.slice(0, 4)
+                            ).map(t => {
+                              const tierSum = prog.items.reduce((s, it) => {
+                                const test = it.testId ? masterTests.find(m => m.id === it.testId) : null;
+                                const tierType =
+                                  it.tierPricingTypes?.[t.id] ||
+                                  test?.tierPricingTypes?.[t.id] ||
+                                  (it.pricingType === 'fixed'
+                                    ? 'fixed'
+                                    : it.pricingType === 'free'
+                                    ? 'free'
+                                    : 'per-person');
+
+                                if (
+                                  tierType === 'free' ||
+                                  tierType === 'fixed' ||
+                                  it.pricingType === 'free' ||
+                                  it.pricingType === 'fixed' ||
+                                  it.pricingType === 'unpriced'
+                                ) {
+                                  return s;
+                                }
+
+                                const price =
+                                  it.tierCustomPrices?.[t.id] !== undefined
+                                    ? it.tierCustomPrices[t.id]
+                                    : test?.tierPrices?.[t.id] !== undefined
+                                    ? test.tierPrices[t.id]
+                                    : it.unitPrice;
+                                return s + (price || 0);
+                              }, 0);
+
+                              return (
+                                <div key={t.id} className="bg-indigo-50 border border-indigo-200 px-2.5 py-1 rounded-xl text-right">
+                                  <span className="block text-[10px] text-indigo-700 font-semibold">{t.name}</span>
+                                  <span className="text-xs font-black text-indigo-950">{tierSum.toLocaleString()} ฿/คน</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <div className="text-right">
+                            <span className="text-xs text-slate-500 mr-2">ยอดรวม:</span>
+                            <span className="text-base font-bold text-emerald-700">
+                              {programTotal.toLocaleString()} บาท
+                            </span>
+                          </div>
+                        )
                       )}
                     </div>
 

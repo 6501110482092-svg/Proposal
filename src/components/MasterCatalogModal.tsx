@@ -364,15 +364,27 @@ export const MasterCatalogModal: React.FC<MasterCatalogModalProps> = ({
                           </td>
                           {safeTiers.map(t => {
                             const p = test.tierPrices?.[t.id];
+                            const tType = test.tierPricingTypes?.[t.id] || (test.defaultPricingType === 'fixed' ? 'fixed' : test.defaultPricingType === 'free' ? 'free' : 'per-person');
+                            const tLabel = test.tierFlatRateLabels?.[t.id];
+                            let cellText = '-';
+                            let badgeClass = 'text-slate-800';
+
+                            if (tType === 'free' || test.defaultPricingType === 'free') {
+                              cellText = 'ฟรี';
+                              badgeClass = 'text-emerald-700 font-bold bg-emerald-50 px-1 py-0.5 rounded';
+                            } else if (tType === 'fixed') {
+                              cellText = tLabel || (p ? `เหมา ${Number(p).toLocaleString()}฿` : 'เหมาจ่าย');
+                              badgeClass = 'text-amber-700 font-bold bg-amber-50 px-1 py-0.5 rounded text-[10px]';
+                            } else if (p !== undefined && p !== null && p > 0) {
+                              cellText = `${Number(p).toLocaleString()} ฿`;
+                              badgeClass = 'text-slate-900 font-medium';
+                            } else if (test.fixedPrice) {
+                              cellText = `${Number(test.fixedPrice).toLocaleString()} ฿`;
+                            }
+
                             return (
                               <td key={t.id} className="py-2 px-2 text-center text-xs font-medium">
-                                {test.defaultPricingType === 'free'
-                                  ? 'ฟรี'
-                                  : p !== undefined && p !== null && p > 0
-                                  ? `${Number(p).toLocaleString()} ฿`
-                                  : test.fixedPrice
-                                  ? `${Number(test.fixedPrice).toLocaleString()} ฿`
-                                  : '-'}
+                                <span className={badgeClass}>{cellText}</span>
                               </td>
                             );
                           })}
@@ -595,35 +607,205 @@ export const MasterCatalogModal: React.FC<MasterCatalogModalProps> = ({
 
               {/* 4 Tiers pricing input */}
               <div className="pt-2 border-t">
-                <label className="block text-xs font-bold text-slate-700 mb-2">
-                  ราคาต่อหน่วย (บาท) สำหรับ 4 ช่วงจำนวนคน:
-                </label>
-                <div className="grid grid-cols-2 gap-2.5">
-                  {safeTiers.map(t => (
-                    <div key={t.id} className="bg-slate-50 p-2 rounded-lg border border-slate-200">
-                      <span className="block text-[11px] font-semibold text-slate-600 mb-1 truncate">
-                        {t.name}
-                      </span>
-                      <div className="flex items-center gap-1">
-                        <input
-                          type="number"
-                          value={editingTest.tierPrices?.[t.id] ?? ''}
-                          onChange={e => {
-                            const val = parseFloat(e.target.value) || 0;
-                            setEditingTest({
-                              ...editingTest,
-                              tierPrices: {
-                                ...(editingTest.tierPrices || {}),
-                                [t.id]: val,
-                              },
-                            });
-                          }}
-                          className="w-full text-sm border border-slate-300 rounded px-2 py-1 bg-white font-medium"
-                        />
-                        <span className="text-xs text-slate-500">฿</span>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-2">
+                  <label className="block text-xs font-bold text-slate-800">
+                    กำหนดราคาสำหรับ 4 ช่วงจำนวนคน (เลือก ต่อคน / เหมาจ่าย / ฟรี ได้ในแต่ละช่วง):
+                  </label>
+                  <span className="text-[10px] text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded font-semibold">
+                    * เช่น &lt;100 คน เป็นเหมาจ่าย และ 101 คนขึ้นไปคิดต่อคน
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {safeTiers.map(t => {
+                    const tierType =
+                      editingTest.tierPricingTypes?.[t.id] ||
+                      (editingTest.defaultPricingType === 'fixed'
+                        ? 'fixed'
+                        : editingTest.defaultPricingType === 'free'
+                        ? 'free'
+                        : 'per-person');
+                    const tierPrice =
+                      editingTest.tierPrices?.[t.id] ??
+                      (tierType === 'fixed' ? editingTest.fixedPrice ?? '' : '');
+                    const tierLabel =
+                      editingTest.tierFlatRateLabels?.[t.id] !== undefined
+                        ? editingTest.tierFlatRateLabels[t.id]
+                        : tierType === 'fixed'
+                        ? tierPrice
+                          ? `เหมาจ่าย ${Number(tierPrice).toLocaleString()} บาท`
+                          : editingTest.flatRateLabel || ''
+                        : '';
+
+                    return (
+                      <div
+                        key={t.id}
+                        className={`p-2.5 rounded-xl border transition space-y-2 ${
+                          tierType === 'fixed'
+                            ? 'bg-amber-50/60 border-amber-300'
+                            : tierType === 'free'
+                            ? 'bg-emerald-50/60 border-emerald-300'
+                            : 'bg-slate-50 border-slate-200'
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-bold text-slate-800 truncate">
+                            {t.name}
+                          </span>
+                          {/* Segmented Mode Button */}
+                          <div className="flex rounded-lg bg-slate-200/80 p-0.5 text-[10px] font-semibold">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingTest({
+                                  ...editingTest,
+                                  tierPricingTypes: {
+                                    ...(editingTest.tierPricingTypes || {}),
+                                    [t.id]: 'per-person',
+                                  },
+                                });
+                              }}
+                              className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                                tierType === 'per-person'
+                                  ? 'bg-white text-indigo-900 shadow-2xs font-bold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              ฿/คน
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const currentP =
+                                  editingTest.tierPrices?.[t.id] || editingTest.fixedPrice || 4500;
+                                setEditingTest({
+                                  ...editingTest,
+                                  tierPricingTypes: {
+                                    ...(editingTest.tierPricingTypes || {}),
+                                    [t.id]: 'fixed',
+                                  },
+                                  tierFlatRateLabels: {
+                                    ...(editingTest.tierFlatRateLabels || {}),
+                                    [t.id]:
+                                      editingTest.tierFlatRateLabels?.[t.id] ||
+                                      `เหมาจ่าย ${Number(currentP).toLocaleString()} บาท`,
+                                  },
+                                  tierPrices: {
+                                    ...(editingTest.tierPrices || {}),
+                                    [t.id]: currentP,
+                                  },
+                                });
+                              }}
+                              className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                                tierType === 'fixed'
+                                  ? 'bg-amber-600 text-white shadow-2xs font-bold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              เหมาจ่าย
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingTest({
+                                  ...editingTest,
+                                  tierPricingTypes: {
+                                    ...(editingTest.tierPricingTypes || {}),
+                                    [t.id]: 'free',
+                                  },
+                                });
+                              }}
+                              className={`px-2 py-0.5 rounded-md transition cursor-pointer ${
+                                tierType === 'free'
+                                  ? 'bg-emerald-600 text-white shadow-2xs font-bold'
+                                  : 'text-slate-600 hover:text-slate-900'
+                              }`}
+                            >
+                              ฟรี
+                            </button>
+                          </div>
+                        </div>
+
+                        {tierType === 'per-person' && (
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[11px] text-slate-500 font-medium">ราคา:</span>
+                            <input
+                              type="number"
+                              placeholder="0"
+                              value={editingTest.tierPrices?.[t.id] ?? ''}
+                              onChange={e => {
+                                const val = parseFloat(e.target.value) || 0;
+                                setEditingTest({
+                                  ...editingTest,
+                                  tierPrices: {
+                                    ...(editingTest.tierPrices || {}),
+                                    [t.id]: val,
+                                  },
+                                });
+                              }}
+                              className="w-full text-xs border border-slate-300 rounded-lg px-2 py-1 bg-white font-bold text-slate-800"
+                            />
+                            <span className="text-xs text-slate-500 font-medium whitespace-nowrap">
+                              บาท/คน
+                            </span>
+                          </div>
+                        )}
+
+                        {tierType === 'fixed' && (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className="text-[11px] text-amber-800 font-medium">ยอดเหมา:</span>
+                              <input
+                                type="number"
+                                placeholder="เช่น 4500"
+                                value={editingTest.tierPrices?.[t.id] ?? ''}
+                                onChange={e => {
+                                  const val = parseFloat(e.target.value) || 0;
+                                  const defaultLabel =
+                                    val > 0 ? `เหมาจ่าย ${val.toLocaleString()} บาท` : 'เหมาจ่าย';
+                                  setEditingTest({
+                                    ...editingTest,
+                                    tierPrices: {
+                                      ...(editingTest.tierPrices || {}),
+                                      [t.id]: val,
+                                    },
+                                    tierFlatRateLabels: {
+                                      ...(editingTest.tierFlatRateLabels || {}),
+                                      [t.id]: defaultLabel,
+                                    },
+                                  });
+                                }}
+                                className="w-24 text-xs border border-amber-300 rounded px-2 py-1 bg-white font-bold text-amber-900"
+                              />
+                              <span className="text-xs text-slate-500">บาท</span>
+                            </div>
+                            <div>
+                              <input
+                                type="text"
+                                placeholder="ข้อความกำกับ เช่น เหมาจ่าย 4,500 บาท"
+                                value={tierLabel}
+                                onChange={e => {
+                                  setEditingTest({
+                                    ...editingTest,
+                                    tierFlatRateLabels: {
+                                      ...(editingTest.tierFlatRateLabels || {}),
+                                      [t.id]: e.target.value,
+                                    },
+                                  });
+                                }}
+                                className="w-full text-[11px] border border-amber-300 rounded px-2 py-1 bg-white text-amber-900 font-semibold"
+                              />
+                            </div>
+                          </div>
+                        )}
+
+                        {tierType === 'free' && (
+                          <div className="py-1 px-2 rounded-lg bg-emerald-100/70 text-emerald-800 text-xs font-semibold text-center">
+                            ตรวจฟรี / รวมในแพ็กเกจแล้ว
+                          </div>
+                        )}
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
 

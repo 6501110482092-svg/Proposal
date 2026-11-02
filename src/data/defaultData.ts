@@ -105,7 +105,9 @@ export const DEFAULT_MASTER_TESTS: MasterTest[] = [
     defaultPricingType: 'fixed',
     flatRateLabel: 'เหมาจ่าย 4,500 บาท',
     fixedPrice: 4500,
-    tierPrices: { 'tier-1': 100, 'tier-2': 80, 'tier-3': 70, 'tier-4': 60 },
+    tierPrices: { 'tier-1': 4500, 'tier-2': 4500, 'tier-3': 8500, 'tier-4': 60 },
+    tierPricingTypes: { 'tier-1': 'fixed', 'tier-2': 'fixed', 'tier-3': 'fixed', 'tier-4': 'per-person' },
+    tierFlatRateLabels: { 'tier-1': 'เหมาจ่าย 4,500 บาท', 'tier-2': 'เหมาจ่าย 4,500 บาท', 'tier-3': 'เหมาจ่าย 8,500 บาท', 'tier-4': '' },
   },
   {
     id: 'test-cxr',
@@ -115,7 +117,9 @@ export const DEFAULT_MASTER_TESTS: MasterTest[] = [
     defaultPricingType: 'fixed',
     flatRateLabel: 'เหมาจ่าย 12,000 บาท',
     fixedPrice: 12000,
-    tierPrices: { 'tier-1': 220, 'tier-2': 180, 'tier-3': 160, 'tier-4': 140 },
+    tierPrices: { 'tier-1': 12000, 'tier-2': 12000, 'tier-3': 15000, 'tier-4': 140 },
+    tierPricingTypes: { 'tier-1': 'fixed', 'tier-2': 'fixed', 'tier-3': 'fixed', 'tier-4': 'per-person' },
+    tierFlatRateLabels: { 'tier-1': 'เหมาจ่าย 12,000 บาท', 'tier-2': 'เหมาจ่าย 12,000 บาท', 'tier-3': 'เหมาจ่าย 15,000 บาท', 'tier-4': '' },
   },
   {
     id: 'test-cbc',

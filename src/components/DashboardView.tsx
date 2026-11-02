@@ -46,6 +46,8 @@ interface DashboardViewProps {
   onExportData: () => void;
   onImportData: (jsonData: string) => void;
   onCreateAmendment?: (proposal: ProposalDocument) => void;
+  onCreateTierRateProposal?: (clinicId?: string) => void;
+  onConvertToStandard?: (proposal: ProposalDocument) => void;
 }
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
@@ -64,6 +66,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onExportData,
   onImportData,
   onCreateAmendment,
+  onCreateTierRateProposal,
+  onConvertToStandard,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
@@ -198,13 +202,23 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2.5">
             <button
               onClick={() => onCreateNewProposal(selectedClinicTab !== 'all' ? selectedClinicTab : undefined)}
-              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm px-5 py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-emerald-900/40 transition-all hover:scale-[1.02] cursor-pointer"
             >
               <Plus className="w-5 h-5" /> สร้างใบเสนอราคาใหม่ {activeClinicInfo ? `(${activeClinicInfo.shortName})` : ''}
             </button>
+            {onCreateTierRateProposal && (
+              <button
+                onClick={() => onCreateTierRateProposal(selectedClinicTab !== 'all' ? selectedClinicTab : undefined)}
+                className="bg-purple-600 hover:bg-purple-500 text-white font-bold text-xs sm:text-sm px-4 py-2.5 sm:px-5 sm:py-3 rounded-2xl flex items-center gap-2 shadow-lg shadow-purple-900/40 transition-all hover:scale-[1.02] cursor-pointer"
+                title="สร้างใบเสนอราคาแบบช่วงราคา สำหรับลูกค้าใหม่ที่ยังไม่ทราบจำนวนคน"
+              >
+                <Layers className="w-5 h-5 text-purple-200" />
+                <span>สร้างแบบช่วงราคา (ลูกค้าใหม่)</span>
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -624,6 +638,12 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                               ใบปรับปรุงสัญญา
                             </span>
                           )}
+                          {p.docType === 'tier-rate' && (
+                            <span className="text-[10px] font-bold bg-indigo-100 text-indigo-900 border border-indigo-300 px-1.5 py-0.2 rounded-md flex items-center gap-1">
+                              <Layers className="w-3 h-3 text-indigo-600" />
+                              <span>ช่วงราคา (ลูกค้าใหม่)</span>
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-slate-500 truncate max-w-xs mt-0.5">
                           {p.title || p.subject}
@@ -640,17 +660,34 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
 
                       {/* Headcount */}
                       <td className="py-3 px-3 text-center">
-                        <span className="font-semibold text-xs text-slate-800">
-                          {headcount > 0 ? `${headcount} คน` : '-'}
-                        </span>
+                        {p.docType === 'tier-rate' ? (
+                          <span className="font-bold text-[11px] text-purple-800 bg-purple-50 px-2 py-0.5 rounded-md border border-purple-200 whitespace-nowrap">
+                            2-4 ช่วงราคา
+                          </span>
+                        ) : (
+                          <span className="font-semibold text-xs text-slate-800">
+                            {headcount > 0 ? `${headcount} คน` : '-'}
+                          </span>
+                        )}
                       </td>
 
                       {/* Grand Total */}
                       <td className="py-3 px-4 text-right">
-                        <div className="font-bold text-sm text-slate-900">
-                          {grandTotal.toLocaleString()} ฿
-                        </div>
-                        <div className="text-[10px] text-slate-400">รวมทั้งสิ้น</div>
+                        {p.docType === 'tier-rate' ? (
+                          <div>
+                            <div className="font-bold text-xs text-purple-900">
+                              ตามช่วงราคา
+                            </div>
+                            <div className="text-[10px] text-slate-400">บาท/คน</div>
+                          </div>
+                        ) : (
+                          <div>
+                            <div className="font-bold text-sm text-slate-900">
+                              {grandTotal.toLocaleString()} ฿
+                            </div>
+                            <div className="text-[10px] text-slate-400">รวมทั้งสิ้น</div>
+                          </div>
+                        )}
                       </td>
 
                       {/* Status Dropdown: draft, sent, confirmed, rejected */}
@@ -678,6 +715,18 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                       {/* Actions */}
                       <td className="py-3 px-4 text-center">
                         <div className="flex items-center justify-center gap-1.5">
+                          {/* If tier-rate proposal, offer Convert to Actual Headcount Quotation button */}
+                          {p.docType === 'tier-rate' && onConvertToStandard && (
+                            <button
+                              onClick={() => onConvertToStandard(p)}
+                              className="bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer shadow-xs"
+                              title="ลูกค้าแจ้งจำนวนคนแล้ว -> คลิกที่นี่เพื่อใส่จำนวนคนจริงและทำใบเสนอราคาพร้อมคิดเงิน"
+                            >
+                              <Users className="w-3.5 h-3.5" />
+                              <span className="hidden lg:inline">แปลงเป็นใบจริง</span>
+                            </button>
+                          )}
+
                           {/* Edit Button */}
                           <button
                             onClick={() => onOpenEditor(p.id)}
@@ -699,7 +748,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                           </button>
 
                           {/* Create Contract Amendment Button */}
-                          {onCreateAmendment && (
+                          {onCreateAmendment && p.docType !== 'tier-rate' && (
                             <button
                               onClick={() => onCreateAmendment(p)}
                               className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 transition cursor-pointer"

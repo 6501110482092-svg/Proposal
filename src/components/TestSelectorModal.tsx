@@ -109,6 +109,9 @@ export const TestSelectorModal: React.FC<TestSelectorModalProps> = ({
           headcount: isUnpriced ? 0 : headcount,
           isCustomHeadcount: isUnpriced,
           totalPrice: totalPrice,
+          tierCustomPrices: test.tierPrices ? { ...test.tierPrices } : undefined,
+          tierPricingTypes: test.tierPricingTypes ? { ...test.tierPricingTypes } : undefined,
+          tierFlatRateLabels: test.tierFlatRateLabels ? { ...test.tierFlatRateLabels } : undefined,
         });
       }
     });

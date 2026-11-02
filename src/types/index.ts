@@ -16,6 +16,12 @@ export interface MasterTest {
   tierPrices: {
     [tierId: string]: number;
   };
+  tierPricingTypes?: {
+    [tierId: string]: 'per-person' | 'fixed' | 'free';
+  };
+  tierFlatRateLabels?: {
+    [tierId: string]: string; // e.g. "เหมาจ่าย 4,500 บาท", "เหมาจ่าย 8,500 บาท"
+  };
   note?: string;
 }
 
@@ -73,6 +79,11 @@ export interface ProposalItem {
   amendmentPriceType?: 'original' | 'custom'; // 'original' = ราคาเดิม, 'custom' = ใส่ราคาใหม่
   amendmentCustomPrice?: number; // ราคาใหม่กรณีใส่ราคาใหม่
   amendmentCustomFlatRateLabel?: string;
+
+  // Tier-Rate Mode fields (โหมดช่วงราคาตามจำนวนคน / ลูกค้าใหม่)
+  tierCustomPrices?: { [tierId: string]: number };
+  tierPricingTypes?: { [tierId: string]: 'per-person' | 'fixed' | 'free' };
+  tierFlatRateLabels?: { [tierId: string]: string };
 }
 
 export interface ProposalProgram {
@@ -90,6 +101,10 @@ export interface ProposalProgram {
   // Amendment table column headers
   colOriginalPriceLabel?: string; // default: "ใบเสนอราคาเดิม"
   colAmendmentLabel?: string;     // default: "เอกสารปรับปรุง"
+
+  // Tier-Rate Mode column settings (แสดง 2, 3 หรือ 4 ช่วงราคาตามที่ต้องการ)
+  selectedTierIds?: string[];     // e.g. ['tier-1', 'tier-2', 'tier-3', 'tier-4']
+  tierColumnLabels?: { [tierId: string]: string }; // Custom column labels for tiers
   
   items: ProposalItem[];
   
@@ -110,8 +125,8 @@ export interface ProposalDocument {
   title: string;             // Internal nickname for proposal list, e.g. "เจริญสุข ฟาร์มา - ตรวจสุขภาพประจำปี 2569"
   clinicProfileId: string;
 
-  // Document Type: Normal Quotation vs Contract Amendment (ใบปรับปรุงสัญญา)
-  docType?: 'quotation' | 'amendment';
+  // Document Type: Normal Quotation vs Contract Amendment (ใบปรับปรุงสัญญา) vs Tier-Rate Proposal (ลูกค้าใหม่/ไม่ระบุจำนวนคน)
+  docType?: 'quotation' | 'amendment' | 'tier-rate';
   amendmentDocTitle?: string; // e.g. "ใบปรับปรุงรายละเอียดรายการตรวจสุขภาพและข้อตกลงการให้บริการ"
   
   // Header Style: 'minimal' (with right box) vs 'official' (date & docNo on same line above subject)

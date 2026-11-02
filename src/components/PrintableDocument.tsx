@@ -1,5 +1,6 @@
 import React from 'react';
-import { ClinicProfile, ProposalDocument, ProposalProgram } from '../types';
+import { ClinicProfile, MasterTest, PriceTier, ProposalDocument, ProposalProgram } from '../types';
+import { DEFAULT_PRICE_TIERS, DEFAULT_MASTER_TESTS } from '../data/defaultData';
 import { DocumentHeader } from './DocumentHeader';
 import { renderFormattedThaiText } from '../utils/richText';
 import { bahttext } from '../utils/bahttext';
@@ -7,12 +8,16 @@ import { bahttext } from '../utils/bahttext';
 interface PrintableDocumentProps {
   proposal: ProposalDocument;
   clinic: ClinicProfile;
+  tiers?: PriceTier[];
+  masterTests?: MasterTest[];
   previewMode?: 'multi-page' | 'continuous';
 }
 
 export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
   proposal,
   clinic,
+  tiers = DEFAULT_PRICE_TIERS,
+  masterTests = DEFAULT_MASTER_TESTS,
   previewMode = 'multi-page',
 }) => {
   // 1. Resolve body text color (excluding header)
@@ -120,6 +125,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
   // Helper to render a table program
   const renderProgramTable = (prog: ProposalProgram, index: number) => {
     const isAmendment = proposal.docType === 'amendment';
+    const isTierRate = proposal.docType === 'tier-rate';
     const totalAmount = calculateProgramTotal(prog);
     const origTotalAmount = calculateOriginalProgramTotal(prog);
     const thaiBaht = prog.thaiBahtTextOverride || bahttext(totalAmount);
@@ -127,6 +133,13 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
     const origPerPerson = prog.defaultHeadcount > 0 ? Math.round(origTotalAmount / prog.defaultHeadcount) : 0;
     const amendedPerPerson = prog.defaultHeadcount > 0 ? Math.round(totalAmount / prog.defaultHeadcount) : 0;
     const standardPerPerson = prog.defaultHeadcount > 0 ? Math.round(totalAmount / prog.defaultHeadcount) : 0;
+
+    // Active tiers for tier-rate mode (2, 3, or 4 tiers selected by user)
+    const effectiveTiers = tiers || DEFAULT_PRICE_TIERS;
+    const activeTierIds = (isTierRate && prog.selectedTierIds && prog.selectedTierIds.length > 0)
+      ? prog.selectedTierIds
+      : effectiveTiers.map(t => t.id);
+    const activeTiers = activeTierIds.map(id => effectiveTiers.find(t => t.id === id) || { id, name: id, min: 1, max: null });
 
     return (
       <div key={prog.id || index} className="mb-5 avoid-break" style={bodyStyle}>
@@ -159,7 +172,17 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
               >
                 {prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพ'}
               </th>
-              {isAmendment ? (
+              {isTierRate ? (
+                activeTiers.map(t => (
+                  <th
+                    key={t.id}
+                    className="py-1 px-2 text-center whitespace-nowrap min-w-[95px]"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {prog.tierColumnLabels?.[t.id] || t.name}
+                  </th>
+                ))
+              ) : isAmendment ? (
                 <>
                   <th
                     className="py-1 px-2 w-28 text-center whitespace-nowrap"
@@ -182,23 +205,116 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                   {prog.colPriceLabel || 'ราคา (บาท)'}
                 </th>
               )}
-              <th
-                className="py-1 px-2 w-18 text-center whitespace-nowrap"
-                style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-              >
-                {prog.colCountLabel || 'จำนวนคน'}
-              </th>
-              <th
-                className="py-1 px-2 w-26 text-center whitespace-nowrap"
-                style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-              >
-                {prog.colTotalLabel || 'รวมราคา'}
-              </th>
+              {!isTierRate && (
+                <>
+                  <th
+                    className="py-1 px-2 w-18 text-center whitespace-nowrap"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {prog.colCountLabel || 'จำนวนคน'}
+                  </th>
+                  <th
+                    className="py-1 px-2 w-26 text-center whitespace-nowrap"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {prog.colTotalLabel || 'รวมราคา'}
+                  </th>
+                </>
+              )}
             </tr>
           </thead>
           <tbody>
             {prog.items.map((item, itemIdx) => {
               const isExcluded = isAmendment && item.amendmentStatus === 'excluded';
+
+              // If Tier-Rate Mode, render dedicated row with columns for each tier
+              if (isTierRate) {
+                return (
+                  <tr
+                    key={item.id || itemIdx}
+                    className="hover:bg-slate-50/50"
+                  >
+                    <td
+                      className="py-1 px-1 text-center font-medium"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      {item.orderNumber || itemIdx + 1}
+                    </td>
+                    <td
+                      className="py-1 px-2 text-left"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      <div
+                        className="font-normal leading-snug"
+                        style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                      >
+                        {renderFormattedThaiText(item.name, resolvedBoldColor)}
+                      </div>
+                      {item.note && (
+                        <div
+                          className="text-[11px] opacity-80 mt-0.5"
+                          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
+                        >
+                          {renderFormattedThaiText(item.note, resolvedBoldColor)}
+                        </div>
+                      )}
+                    </td>
+                    {activeTiers.map(t => {
+                      const mTest = (masterTests || DEFAULT_MASTER_TESTS).find(m => m.id === item.testId);
+
+                      // Check tier-specific pricing type:
+                      const tierType =
+                        item.tierPricingTypes?.[t.id] ||
+                        mTest?.tierPricingTypes?.[t.id] ||
+                        (item.pricingType === 'fixed'
+                          ? 'fixed'
+                          : item.pricingType === 'free'
+                          ? 'free'
+                          : 'per-person');
+
+                      let price = item.tierCustomPrices?.[t.id];
+                      if (price === undefined) {
+                        price =
+                          mTest?.tierPrices?.[t.id] ??
+                          (tierType === 'fixed'
+                            ? mTest?.fixedPrice ?? item.unitPrice
+                            : item.unitPrice);
+                      }
+
+                      let cellDisplay = '-';
+                      if (tierType === 'free' || item.pricingType === 'free') {
+                        cellDisplay = item.flatRateLabel || 'ฟรี';
+                      } else if (tierType === 'fixed') {
+                        const customFlatLabel =
+                          item.tierFlatRateLabels?.[t.id] || mTest?.tierFlatRateLabels?.[t.id];
+                        if (customFlatLabel) {
+                          cellDisplay = customFlatLabel;
+                        } else if (price !== undefined && price > 0) {
+                          cellDisplay = `เหมาจ่าย ${price.toLocaleString()} บาท`;
+                        } else {
+                          cellDisplay = item.flatRateLabel || 'เหมาจ่าย';
+                        }
+                      } else {
+                        // per-person
+                        cellDisplay =
+                          price !== undefined && price > 0
+                            ? price.toLocaleString()
+                            : item.flatRateLabel || '-';
+                      }
+
+                      return (
+                        <td
+                          key={t.id}
+                          className="py-1 px-2 text-center whitespace-nowrap"
+                          style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                        >
+                          {cellDisplay}
+                        </td>
+                      );
+                    })}
+                  </tr>
+                );
+              }
 
               // Format price display in standard mode
               let priceDisplay: string = '-';
@@ -377,7 +493,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                     <span style={{ color: resolvedBoldColor }}>
                       {prog.totalRowLabel || 'รวมราคาโปรแกรมรายการตรวจ'}
                     </span>
-                    {thaiBaht && totalAmount > 0 && (
+                    {!isTierRate && thaiBaht && totalAmount > 0 && (
                       <span className="text-[12px] font-medium opacity-90 italic mt-0.5">
                         ({thaiBaht})
                       </span>
@@ -385,7 +501,46 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                   </div>
                 </td>
 
-                {isAmendment ? (
+                {isTierRate ? (
+                  activeTiers.map(t => {
+                    const tierSum = prog.items.reduce((sum, it) => {
+                      const mTest = (masterTests || DEFAULT_MASTER_TESTS).find(m => m.id === it.testId);
+                      const tierType =
+                        it.tierPricingTypes?.[t.id] ||
+                        mTest?.tierPricingTypes?.[t.id] ||
+                        (it.pricingType === 'fixed'
+                          ? 'fixed'
+                          : it.pricingType === 'free'
+                          ? 'free'
+                          : 'per-person');
+
+                      // Skip fixed or free items for per-person total row
+                      if (
+                        tierType === 'free' ||
+                        tierType === 'fixed' ||
+                        it.pricingType === 'free' ||
+                        it.pricingType === 'fixed'
+                      ) {
+                        return sum;
+                      }
+
+                      let p = it.tierCustomPrices?.[t.id];
+                      if (p === undefined) {
+                        p = mTest?.tierPrices?.[t.id] ?? it.unitPrice ?? 0;
+                      }
+                      return sum + (p || 0);
+                    }, 0);
+                    return (
+                      <td
+                        key={t.id}
+                        className="py-1.5 px-2 text-center text-xs font-bold text-blue-900 whitespace-nowrap"
+                        style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                      >
+                        {tierSum > 0 ? `${tierSum.toLocaleString()} ฿/คน` : '-'}
+                      </td>
+                    );
+                  })
+                ) : isAmendment ? (
                   <>
                     <td
                       className="py-1 px-2 text-center text-xs text-slate-400 font-normal"
@@ -409,18 +564,22 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
                   </td>
                 )}
 
-                <td
-                  className="py-1 px-2 text-center font-bold"
-                  style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-                >
-                  {prog.defaultHeadcount || '-'}
-                </td>
-                <td
-                  className="py-1 px-2 text-right font-bold text-[14px]"
-                  style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}`, color: resolvedBoldColor }}
-                >
-                  {totalAmount.toLocaleString()}
-                </td>
+                {!isTierRate && (
+                  <>
+                    <td
+                      className="py-1 px-2 text-center font-bold"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      {prog.defaultHeadcount || '-'}
+                    </td>
+                    <td
+                      className="py-1 px-2 text-right font-bold text-[14px]"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}`, color: resolvedBoldColor }}
+                    >
+                      {totalAmount.toLocaleString()}
+                    </td>
+                  </>
+                )}
               </tr>
             )}
           </tbody>

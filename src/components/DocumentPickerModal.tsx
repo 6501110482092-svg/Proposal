@@ -24,6 +24,8 @@ interface DocumentPickerModalProps {
   onSelectAndPreview: (id: string) => void;
   onCreateNew: () => void;
   onCreateAmendment?: (proposal: ProposalDocument) => void;
+  onCreateTierRate?: () => void;
+  onConvertToStandard?: (proposal: ProposalDocument) => void;
 }
 
 export const DocumentPickerModal: React.FC<DocumentPickerModalProps> = ({
@@ -36,6 +38,8 @@ export const DocumentPickerModal: React.FC<DocumentPickerModalProps> = ({
   onSelectAndPreview,
   onCreateNew,
   onCreateAmendment,
+  onCreateTierRate,
+  onConvertToStandard,
 }) => {
   const [search, setSearch] = useState('');
   const [selectedClinicId, setSelectedClinicId] = useState<string>('all');
@@ -117,6 +121,20 @@ export const DocumentPickerModal: React.FC<DocumentPickerModalProps> = ({
               ))}
             </select>
 
+            {onCreateTierRate && (
+              <button
+                onClick={() => {
+                  onClose();
+                  onCreateTierRate();
+                }}
+                className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition shrink-0 cursor-pointer shadow-xs"
+                title="สร้างใบเสนอราคาลูกค้าใหม่ (แบบช่วงราคา)"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ แบบช่วงราคา</span>
+              </button>
+            )}
+
             <button
               onClick={() => {
                 onClose();
@@ -143,6 +161,7 @@ export const DocumentPickerModal: React.FC<DocumentPickerModalProps> = ({
               const clinic = clinics.find(c => c.id === p.clinicProfileId) || clinics[0];
               const isSelected = p.id === activeProposalId;
               const isAmendment = p.docType === 'amendment';
+              const isTierRate = p.docType === 'tier-rate';
 
               return (
                 <div
@@ -158,6 +177,11 @@ export const DocumentPickerModal: React.FC<DocumentPickerModalProps> = ({
                       <span className="font-mono text-xs font-bold text-slate-800 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
                         {p.documentNo || '-'}
                       </span>
+                      {isTierRate && (
+                        <span className="text-[10px] font-bold bg-indigo-100 text-indigo-800 border border-indigo-300 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          📊 ช่วงราคา (ลูกค้าใหม่)
+                        </span>
+                      )}
                       {isAmendment && (
                         <span className="text-[10px] font-bold bg-purple-100 text-purple-800 border border-purple-300 px-2 py-0.5 rounded-full flex items-center gap-1">
                           <FileCheck className="w-3 h-3 text-purple-700" /> ใบปรับปรุงสัญญา
@@ -190,6 +214,19 @@ export const DocumentPickerModal: React.FC<DocumentPickerModalProps> = ({
 
                   {/* Actions for this document */}
                   <div className="flex items-center gap-2 shrink-0">
+                    {isTierRate && onConvertToStandard && (
+                      <button
+                        onClick={() => {
+                          onClose();
+                          onConvertToStandard(p);
+                        }}
+                        className="px-3 py-2 bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs rounded-xl flex items-center gap-1 transition shadow-xs cursor-pointer"
+                        title="แปลงเป็นใบเสนอราคาจริงเมื่อลูกค้าระบุจำนวนคน"
+                      >
+                        <span>⚡ แปลงเป็นใบจริง</span>
+                      </button>
+                    )}
+
                     <button
                       onClick={() => {
                         onClose();
@@ -212,7 +249,7 @@ export const DocumentPickerModal: React.FC<DocumentPickerModalProps> = ({
                       <span>พิมพ์</span>
                     </button>
 
-                    {onCreateAmendment && !isAmendment && (
+                    {onCreateAmendment && !isAmendment && !isTierRate && (
                       <button
                         onClick={() => {
                           onClose();
