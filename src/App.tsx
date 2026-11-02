@@ -505,6 +505,7 @@ export default function App() {
           totalRowLabel: 'รวมราคาโปรแกรมรายการตรวจทั่วไปพนักงาน',
           pageBreakAfter: true,
           selectedTierIds: initialSelectedTierIds,
+          tierGroupHeaderLabel: 'ราคา (บาท/ราย)',
         },
       ],
       remarks: [...targetClinic.defaultRemarks],

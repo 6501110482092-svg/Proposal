@@ -105,6 +105,7 @@ export interface ProposalProgram {
   // Tier-Rate Mode column settings (แสดง 2, 3 หรือ 4 ช่วงราคาตามที่ต้องการ)
   selectedTierIds?: string[];     // e.g. ['tier-1', 'tier-2', 'tier-3', 'tier-4']
   tierColumnLabels?: { [tierId: string]: string }; // Custom column labels for tiers
+  tierGroupHeaderLabel?: string;  // Super header over tier columns, default: "ราคา (บาท/ราย)"
   
   items: ProposalItem[];
   

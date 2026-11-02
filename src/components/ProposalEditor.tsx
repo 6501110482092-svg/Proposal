@@ -48,6 +48,55 @@ import {
   FileCheck,
 } from 'lucide-react';
 
+interface ProgramTableNoteFieldProps {
+  note: string;
+  onUpdateNote: (val: string) => void;
+}
+
+const ProgramTableNoteField: React.FC<ProgramTableNoteFieldProps> = ({
+  note,
+  onUpdateNote,
+}) => {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  return (
+    <div className="pt-2">
+      <div className="flex flex-wrap items-center justify-between gap-1 mb-1">
+        <label className="block text-[11px] font-bold text-slate-700">
+          หมายเหตุใต้ตารางนี้ (เช่น **และราคาตรวจเพิ่มเติมเป็นราคาผู้ตรวจรายบุคคล...)
+        </label>
+        <TextFormatToolbar
+          inputRef={textareaRef}
+          value={note}
+          onChange={onUpdateNote}
+        />
+      </div>
+      <textarea
+        ref={textareaRef}
+        rows={3}
+        value={note}
+        onChange={e => onUpdateNote(e.target.value)}
+        onKeyDown={e => {
+          if (e.key === 'Tab') {
+            e.preventDefault();
+            if (textareaRef.current) {
+              insertTabIndent(textareaRef.current, note, onUpdateNote);
+            }
+          }
+        }}
+        placeholder="ระบุหมายเหตุเฉพาะตารางนี้ (สามารถพิมพ์หลายบรรทัด กดปุ่มย่อหน้า หรือเคาะ Tab เพื่อจัดหน้าได้)..."
+        className="w-full text-xs border border-slate-300 rounded-xl px-3 py-2 bg-white leading-relaxed whitespace-pre-wrap outline-hidden focus:ring-1 focus:ring-sky-500 font-normal text-slate-800"
+      />
+      <div className="flex flex-wrap items-center justify-between gap-1 mt-1 text-[11px] text-slate-400">
+        <span>
+          เคล็ดลับ: สามารถกดปุ่ม <strong className="text-sky-700 font-semibold">[↵ ขึ้นบรรทัดใหม่]</strong> หรือ <strong className="text-indigo-700 font-semibold">[⇥ ย่อหน้า]</strong> (หรือกด Tab บนแป้นพิมพ์) เพื่อจัดหน้าข้อความใต้ตารางได้
+        </span>
+        <span className="text-[10px] text-slate-400">รองรับ Markdown **ตัวหนา**</span>
+      </div>
+    </div>
+  );
+};
+
 interface ProposalEditorProps {
   proposal: ProposalDocument;
   onChange: (updated: ProposalDocument) => void;
@@ -224,6 +273,8 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       colPriceLabel: 'ราคา (บาท)',
       colCountLabel: 'จำนวนคน',
       colTotalLabel: 'รวมราคา(บาท)',
+      tierGroupHeaderLabel: 'ราคา (บาท/ราย)',
+      selectedTierIds: proposal.programs[0]?.selectedTierIds,
       items: [],
       showTotalRow: true,
       totalRowLabel: 'รวมราคารายการตรวจทั้งหมด',
@@ -724,6 +775,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                     const updatedPrograms = proposal.programs.map(prog => ({
                       ...prog,
                       selectedTierIds: prog.selectedTierIds && prog.selectedTierIds.length > 0 ? prog.selectedTierIds : defaultTierIds,
+                      tierGroupHeaderLabel: prog.tierGroupHeaderLabel || 'ราคา (บาท/ราย)',
                     }));
 
                     onChange({
@@ -1468,65 +1520,92 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                       ปรับแต่งข้อความหัวตาราง (สามารถพิมพ์แก้ไขคำได้ตามต้องการ):
                     </span>
                     {proposal.docType === 'tier-rate' ? (
-                      <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
+                          <div>
+                            <label className="block text-[10px] text-slate-500">คอลัมน์ 1 (ลำดับ)</label>
+                            <input
+                              type="text"
+                              value={prog.colRankLabel || 'ลำดับ'}
+                              onChange={e => {
+                                const updated = proposal.programs.map(p =>
+                                  p.id === prog.id ? { ...p, colRankLabel: e.target.value } : p
+                                );
+                                onChange({ ...proposal, programs: updated });
+                              }}
+                              className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                            />
+                          </div>
+                          <div className="sm:col-span-3">
+                            <label className="block text-[10px] text-slate-500">คอลัมน์ 2 (ชื่อรายการ)</label>
+                            <input
+                              type="text"
+                              value={prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพสำหรับพนักงาน'}
+                              onChange={e => {
+                                const updated = proposal.programs.map(p =>
+                                  p.id === prog.id ? { ...p, colNameLabel: e.target.value } : p
+                                );
+                                onChange({ ...proposal, programs: updated });
+                              }}
+                              className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
+                            />
+                          </div>
+                          <div className="sm:col-span-2">
+                            <label className="block text-[10px] text-blue-700 font-bold">
+                              หัวตารางควบช่วงราคา (Super Header)
+                            </label>
+                            <input
+                              type="text"
+                              value={prog.tierGroupHeaderLabel !== undefined ? prog.tierGroupHeaderLabel : 'ราคา (บาท/ราย)'}
+                              onChange={e => {
+                                const updated = proposal.programs.map(p =>
+                                  p.id === prog.id ? { ...p, tierGroupHeaderLabel: e.target.value } : p
+                                );
+                                onChange({ ...proposal, programs: updated });
+                              }}
+                              placeholder="ราคา (บาท/ราย)"
+                              className="w-full text-xs border border-blue-300 rounded px-2 py-1 font-semibold bg-blue-50/60 text-blue-900"
+                            />
+                          </div>
+                        </div>
+
                         <div>
-                          <label className="block text-[10px] text-slate-500">คอลัมน์ 1 (ลำดับ)</label>
-                          <input
-                            type="text"
-                            value={prog.colRankLabel || 'ลำดับ'}
-                            onChange={e => {
-                              const updated = proposal.programs.map(p =>
-                                p.id === prog.id ? { ...p, colRankLabel: e.target.value } : p
+                          <label className="block text-[10px] font-bold text-indigo-700 mb-1">
+                            หัวคอลัมน์ย่อยแต่ละช่วงจำนวนคน (แสดงอยู่ใต้หัวตารางควบช่วงราคา):
+                          </label>
+                          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                            {(prog.selectedTierIds && prog.selectedTierIds.length > 0
+                              ? tiers.filter(t => prog.selectedTierIds!.includes(t.id))
+                              : tiers.slice(0, 4)
+                            ).map((t, tIdx) => {
+                              const customLabel = prog.tierColumnLabels?.[t.id] !== undefined
+                                ? prog.tierColumnLabels[t.id]
+                                : t.name;
+                              return (
+                                <div key={t.id}>
+                                  <label className="block text-[10px] text-indigo-600 font-semibold truncate">
+                                    ช่วงที่ {tIdx + 1} ({t.name})
+                                  </label>
+                                  <input
+                                    type="text"
+                                    value={customLabel}
+                                    onChange={e => {
+                                      const updatedLabels = {
+                                        ...(prog.tierColumnLabels || {}),
+                                        [t.id]: e.target.value,
+                                      };
+                                      const updated = proposal.programs.map(p =>
+                                        p.id === prog.id ? { ...p, tierColumnLabels: updatedLabels } : p
+                                      );
+                                      onChange({ ...proposal, programs: updated });
+                                    }}
+                                    className="w-full text-xs border border-indigo-300 rounded px-2 py-1 font-semibold bg-indigo-50/50"
+                                  />
+                                </div>
                               );
-                              onChange({ ...proposal, programs: updated });
-                            }}
-                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
-                          />
+                            })}
+                          </div>
                         </div>
-                        <div className="sm:col-span-2">
-                          <label className="block text-[10px] text-slate-500">คอลัมน์ 2 (ชื่อรายการ)</label>
-                          <input
-                            type="text"
-                            value={prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพสำหรับพนักงาน'}
-                            onChange={e => {
-                              const updated = proposal.programs.map(p =>
-                                p.id === prog.id ? { ...p, colNameLabel: e.target.value } : p
-                              );
-                              onChange({ ...proposal, programs: updated });
-                            }}
-                            className="w-full text-xs border border-slate-200 rounded px-2 py-1 font-semibold"
-                          />
-                        </div>
-                        {(prog.selectedTierIds && prog.selectedTierIds.length > 0
-                          ? tiers.filter(t => prog.selectedTierIds!.includes(t.id))
-                          : tiers.slice(0, 4)
-                        ).map((t, tIdx) => {
-                          const customLabel = prog.tierColumnLabels?.[t.id] !== undefined
-                            ? prog.tierColumnLabels[t.id]
-                            : t.name;
-                          return (
-                            <div key={t.id}>
-                              <label className="block text-[10px] text-indigo-700 font-bold truncate">
-                                ช่วงที่ {tIdx + 1} ({t.name})
-                              </label>
-                              <input
-                                type="text"
-                                value={customLabel}
-                                onChange={e => {
-                                  const updatedLabels = {
-                                    ...(prog.tierColumnLabels || {}),
-                                    [t.id]: e.target.value,
-                                  };
-                                  const updated = proposal.programs.map(p =>
-                                    p.id === prog.id ? { ...p, tierColumnLabels: updatedLabels } : p
-                                  );
-                                  onChange({ ...proposal, programs: updated });
-                                }}
-                                className="w-full text-xs border border-indigo-300 rounded px-2 py-1 font-semibold bg-indigo-50/50"
-                              />
-                            </div>
-                          );
-                        })}
                       </div>
                     ) : proposal.docType === 'amendment' ? (
                       <div className="grid grid-cols-2 sm:grid-cols-6 gap-2">
@@ -2444,23 +2523,15 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                     )}
 
                     {/* Table Note */}
-                    <div className="pt-2">
-                      <label className="block text-[11px] font-bold text-slate-600 mb-1">
-                        หมายเหตุใต้ตารางนี้ (เช่น **และราคาตรวจเพิ่มเติมเป็นราคาผู้ตรวจรายบุคคล...)
-                      </label>
-                      <input
-                        type="text"
-                        value={prog.tableNote || ''}
-                        onChange={e => {
-                          const updated = proposal.programs.map(p =>
-                            p.id === prog.id ? { ...p, tableNote: e.target.value } : p
-                          );
-                          onChange({ ...proposal, programs: updated });
-                        }}
-                        placeholder="ระบุหมายเหตุเฉพาะตารางนี้..."
-                        className="w-full text-xs border border-slate-200 rounded px-2.5 py-1.5 bg-white"
-                      />
-                    </div>
+                    <ProgramTableNoteField
+                      note={prog.tableNote || ''}
+                      onUpdateNote={newNote => {
+                        const updated = proposal.programs.map(p =>
+                          p.id === prog.id ? { ...p, tableNote: newNote } : p
+                        );
+                        onChange({ ...proposal, programs: updated });
+                      }}
+                    />
                   </div>
                 </div>
               );

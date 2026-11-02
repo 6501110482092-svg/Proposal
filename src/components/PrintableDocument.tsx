@@ -159,71 +159,96 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
           style={{ borderColor: resolvedBorderColor, border: `1px solid ${resolvedBorderColor}` }}
         >
           <thead>
-            <tr className="bg-slate-100/70 font-bold text-center">
-              <th
-                className="py-1 px-1.5 w-10 text-center"
-                style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-              >
-                {prog.colRankLabel || 'ลำดับ'}
-              </th>
-              <th
-                className="py-1 px-2.5 text-left"
-                style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-              >
-                {prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพ'}
-              </th>
-              {isTierRate ? (
-                activeTiers.map(t => (
+            {isTierRate ? (
+              <>
+                <tr className="bg-slate-100/70 font-bold text-center">
                   <th
-                    key={t.id}
-                    className="py-1 px-2 text-center whitespace-nowrap min-w-[95px]"
+                    rowSpan={2}
+                    className="py-1 px-1.5 w-10 text-center align-middle"
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
-                    {prog.tierColumnLabels?.[t.id] || t.name}
+                    {prog.colRankLabel || 'ลำดับ'}
                   </th>
-                ))
-              ) : isAmendment ? (
-                <>
+                  <th
+                    rowSpan={2}
+                    className="py-1 px-2.5 text-left align-middle"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพ'}
+                  </th>
+                  <th
+                    colSpan={activeTiers.length}
+                    className="py-1 px-2 text-center whitespace-nowrap"
+                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                  >
+                    {prog.tierGroupHeaderLabel || 'ราคา (บาท/ราย)'}
+                  </th>
+                </tr>
+                <tr className="bg-slate-100/70 font-bold text-center">
+                  {activeTiers.map(t => (
+                    <th
+                      key={t.id}
+                      className="py-1 px-2 text-center whitespace-nowrap min-w-[95px]"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      {prog.tierColumnLabels?.[t.id] || t.name}
+                    </th>
+                  ))}
+                </tr>
+              </>
+            ) : (
+              <tr className="bg-slate-100/70 font-bold text-center">
+                <th
+                  className="py-1 px-1.5 w-10 text-center"
+                  style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                >
+                  {prog.colRankLabel || 'ลำดับ'}
+                </th>
+                <th
+                  className="py-1 px-2.5 text-left"
+                  style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                >
+                  {prog.colNameLabel || 'โปรแกรมรายการตรวจสุขภาพ'}
+                </th>
+                {isAmendment ? (
+                  <>
+                    <th
+                      className="py-1 px-2 w-28 text-center whitespace-nowrap"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      {prog.colOriginalPriceLabel || 'ใบเสนอราคาเดิม'}
+                    </th>
+                    <th
+                      className="py-1 px-2 w-36 text-center whitespace-nowrap"
+                      style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                    >
+                      {prog.colAmendmentLabel || 'เอกสารปรับปรุง'}
+                    </th>
+                  </>
+                ) : (
                   <th
                     className="py-1 px-2 w-28 text-center whitespace-nowrap"
                     style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                   >
-                    {prog.colOriginalPriceLabel || 'ใบเสนอราคาเดิม'}
+                    {prog.colPriceLabel || 'ราคา (บาท)'}
                   </th>
-                  <th
-                    className="py-1 px-2 w-36 text-center whitespace-nowrap"
-                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-                  >
-                    {prog.colAmendmentLabel || 'เอกสารปรับปรุง'}
-                  </th>
-                </>
-              ) : (
+                )}
                 <th
-                  className="py-1 px-2 w-28 text-center whitespace-nowrap"
+                  className="py-1 px-2 w-18 text-center whitespace-nowrap"
                   style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
                 >
-                  {prog.colPriceLabel || 'ราคา (บาท)'}
+                  {prog.colCountLabel && prog.colCountLabel !== 'จำนวนคน'
+                    ? prog.colCountLabel
+                    : 'จำนวน (ราย)'}
                 </th>
-              )}
-              {!isTierRate && (
-                <>
-                  <th
-                    className="py-1 px-2 w-18 text-center whitespace-nowrap"
-                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-                  >
-                    {prog.colCountLabel && prog.colCountLabel !== 'จำนวนคน'
-                      ? prog.colCountLabel
-                      : 'จำนวน (ราย)'}
-                  </th>
-                  <th
-                    className="py-1 px-2 w-26 text-center whitespace-nowrap"
-                    style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
-                  >
-                    {prog.colTotalLabel || 'รวมราคา'}
-                  </th>
-                </>
-              )}
-            </tr>
+                <th
+                  className="py-1 px-2 w-26 text-center whitespace-nowrap"
+                  style={{ ...cellBorderStyle, border: `1px solid ${resolvedBorderColor}` }}
+                >
+                  {prog.colTotalLabel || 'รวมราคา'}
+                </th>
+              </tr>
+            )}
           </thead>
           <tbody>
             {prog.items.map((item, itemIdx) => {
@@ -608,7 +633,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
         {/* Table Note */}
         {prog.tableNote && (
-          <div className="mt-2 text-[12.5px] font-medium leading-normal">
+          <div className="mt-2 text-[12.5px] font-medium leading-normal whitespace-pre-wrap">
             {renderFormattedThaiText(prog.tableNote, resolvedBoldColor)}
           </div>
         )}
