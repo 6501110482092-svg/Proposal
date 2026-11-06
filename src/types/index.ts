@@ -118,6 +118,7 @@ export interface ProposalProgram {
   
   // Note specific to this program table (e.g. "**และราคาตรวจเพิ่มเติมเป็นราคาผู้ตรวจรายบุคคล...")
   tableNote?: string;
+  pageBreakBefore?: boolean; // forces this program to start on a new A4 page with clinic header
   pageBreakAfter?: boolean;  // forces a page break after this program
 }
 
@@ -133,6 +134,9 @@ export interface ProposalDocument {
   
   // Header Style: 'minimal' (with right box) vs 'official' (date & docNo on same line above subject)
   headerStyle?: 'minimal' | 'official';
+
+  // Table Density: 'standard' (default) vs 'compact' (fits more rows) vs 'ultra-compact'
+  tableDensity?: 'standard' | 'compact' | 'ultra-compact';
   
   // Header details
   dateText: string;          // e.g. "20 ตุลาคม 2569"

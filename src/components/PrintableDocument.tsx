@@ -4,6 +4,7 @@ import { DEFAULT_PRICE_TIERS, DEFAULT_MASTER_TESTS } from '../data/defaultData';
 import { DocumentHeader } from './DocumentHeader';
 import { renderFormattedThaiText } from '../utils/richText';
 import { bahttext } from '../utils/bahttext';
+import { partitionProgramsIntoPages, calculateTotalDocumentPages } from '../utils/pagination';
 
 interface PrintableDocumentProps {
   proposal: ProposalDocument;
@@ -141,12 +142,20 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
       : effectiveTiers.map(t => t.id);
     const activeTiers = activeTierIds.map(id => effectiveTiers.find(t => t.id === id) || { id, name: id, min: 1, max: null });
 
+    const density = proposal.tableDensity || 'standard';
+    const tableFontSize = density === 'ultra-compact' ? 'text-[11.5px]' : density === 'compact' ? 'text-[12px]' : 'text-[13px]';
+    const titleClass = density === 'ultra-compact' ? 'text-[13px] mb-1' : density === 'compact' ? 'text-[13.5px] mb-1' : 'text-[14.5px] mb-1.5';
+    const tableMarginBottom = density === 'ultra-compact' ? 'mb-2.5' : density === 'compact' ? 'mb-3' : 'mb-3.5';
+    // Only force break-inside: avoid on the outer div if user explicitly requested a page break
+    // Individual table rows (tr) are already protected from splitting by CSS
+    const shouldAvoidBreak = prog.pageBreakBefore === true;
+
     return (
-      <div key={prog.id || index} className="mb-5 avoid-break" style={bodyStyle}>
+      <div key={prog.id || index} className={`${tableMarginBottom} ${shouldAvoidBreak ? 'avoid-break' : ''}`} style={bodyStyle}>
         {/* Program Title */}
         {prog.title && (
           <h3
-            className="font-bold text-[14.5px] mb-1.5 underline underline-offset-4 decoration-1"
+            className={`font-bold ${titleClass} underline underline-offset-4 decoration-1`}
             style={{ color: resolvedBoldColor }}
           >
             {prog.title}
@@ -155,7 +164,7 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
         {/* Program Table */}
         <table
-          className="doc-table text-[13px] border-collapse w-full mb-1"
+          className={`doc-table ${tableFontSize} border-collapse w-full mb-1`}
           style={{ borderColor: resolvedBorderColor, border: `1px solid ${resolvedBorderColor}` }}
         >
           <thead>
@@ -633,7 +642,11 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
         {/* Table Note */}
         {prog.tableNote && (
-          <div className="mt-2 text-[12.5px] font-medium leading-normal whitespace-pre-wrap">
+          <div
+            className={`mt-1.5 ${
+              density === 'ultra-compact' ? 'text-[11px]' : density === 'compact' ? 'text-[11.5px]' : 'text-[12.5px]'
+            } font-medium leading-normal whitespace-pre-wrap`}
+          >
             {renderFormattedThaiText(prog.tableNote, resolvedBoldColor)}
           </div>
         )}
@@ -643,7 +656,11 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
 
   // Page 1: Header (with Quotation, Doc No, Date in top right), Subject, Attention, Intro, Program 1
   const renderPage1 = () => (
-    <div className="a4-sheet a4-page flex flex-col justify-between">
+    <div className="a4-sheet a4-page flex flex-col justify-between relative">
+      {/* Subtle page indicator for screen preview */}
+      <div className="absolute top-2 right-4 text-[11px] font-semibold text-slate-400 no-print select-none">
+        หน้า 1 / {totalPages}
+      </div>
       <div>
         {/* Header (with logo, clinic details on left, and ใบเสนอราคา / เลขที่ / วันที่ on right) */}
         <DocumentHeader
@@ -723,14 +740,43 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
     </div>
   );
 
-  const renderPage2 = () => {
-    const page2Programs = proposal.programs.slice(1);
-    if (page2Programs.length === 0) return null;
+  // Check if final page has any content before rendering it
+  const hasFinalPageContent = Boolean(
+    (proposal.remarks && proposal.remarks.length > 0) ||
+    (proposal.serviceConditions && proposal.serviceConditions.length > 0) ||
+    (proposal.closingParagraph && proposal.closingParagraph.trim()) ||
+    (proposal.signer?.name && proposal.signer.name.trim()) ||
+    proposal.clientConfirmation?.show ||
+    (proposal.coordinators && proposal.coordinators.length > 0)
+  );
 
-    return (
-      <div className="a4-sheet a4-page flex flex-col justify-between">
+  // Partition remaining programs (index 1 to N) into discrete A4 pages
+  // Each page will be its own A4 sheet WITH <DocumentHeader>
+  const programPages = partitionProgramsIntoPages(proposal.programs, {
+    density: proposal.tableDensity || 'standard',
+    isOfficialHeader: proposal.headerStyle === 'official',
+  });
+
+  const totalPages = calculateTotalDocumentPages(proposal.programs, hasFinalPageContent, {
+    density: proposal.tableDensity || 'standard',
+    isOfficialHeader: proposal.headerStyle === 'official',
+  });
+
+  const renderProgramPages = () => {
+    if (programPages.length === 0) return null;
+
+    return programPages.map(page => (
+      <div
+        key={`program-page-${page.pageIndex}`}
+        className="a4-sheet a4-page flex flex-col justify-between relative"
+      >
+        {/* Subtle page indicator for screen preview */}
+        <div className="absolute top-2 right-4 text-[11px] font-semibold text-slate-400 no-print select-none">
+          หน้า {page.pageIndex} / {totalPages}
+        </div>
+
         <div>
-          {/* Header on Page 2 (Exact same header structure as Page 1!) */}
+          {/* Header on this Page (Exact same header structure as Page 1!) */}
           <DocumentHeader
             clinic={clinic}
             documentNo={proposal.documentNo}
@@ -762,30 +808,26 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             </div>
           )}
 
-          {/* Programs for Page 2 */}
+          {/* Programs for this page */}
           <div style={bodyStyle}>
-            {page2Programs.map((prog, idx) => renderProgramTable(prog, idx + 1))}
+            {page.programs.map(prog => renderProgramTable(prog, prog.originalIndex))}
           </div>
         </div>
       </div>
-    );
+    ));
   };
-
-  // Check if final page has any content before rendering it
-  const hasFinalPageContent = Boolean(
-    (proposal.remarks && proposal.remarks.length > 0) ||
-    (proposal.serviceConditions && proposal.serviceConditions.length > 0) ||
-    (proposal.closingParagraph && proposal.closingParagraph.trim()) ||
-    (proposal.signer?.name && proposal.signer.name.trim()) ||
-    proposal.clientConfirmation?.show ||
-    (proposal.coordinators && proposal.coordinators.length > 0)
-  );
 
   const renderPageFinal = () => {
     if (!hasFinalPageContent) return null;
 
+    const finalPageNum = totalPages;
+
     return (
-      <div className="a4-sheet a4-page flex flex-col justify-between">
+      <div className="a4-sheet a4-page flex flex-col justify-between relative">
+        {/* Subtle page indicator for screen preview */}
+        <div className="absolute top-2 right-4 text-[11px] font-semibold text-slate-400 no-print select-none">
+          หน้า {finalPageNum} / {totalPages}
+        </div>
         <div>
           {/* Header on Final Page (Exact same header structure as Page 1!) */}
           <DocumentHeader
@@ -955,10 +997,10 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
       {/* Page 1 */}
       {renderPage1()}
 
-      {/* Page 2 (if any additional programs) */}
-      {proposal.programs.length > 1 && renderPage2()}
+      {/* Program Pages (Page 2, Page 3... each with its own DocumentHeader!) */}
+      {renderProgramPages()}
 
-      {/* Page 3 / Final Page (Terms, Signoff, Coordinators) */}
+      {/* Final Page (Terms, Signoff, Coordinators) */}
       {hasFinalPageContent && renderPageFinal()}
     </div>
   );

@@ -19,6 +19,7 @@ import {
 import { generateCompanyDocNumber } from '../utils/docNumber';
 import { getTodayThaiDate, THAI_MONTHS } from '../utils/thaiDate';
 import { bahttext } from '../utils/bahttext';
+import { getProgramPageMap, calculateTotalDocumentPages } from '../utils/pagination';
 import {
   Building2,
   Calendar,
@@ -33,6 +34,8 @@ import {
   Layers,
   Sparkles,
   ArrowUpDown,
+  ArrowUp,
+  ArrowDown,
   CheckCircle2,
   Info,
   DollarSign,
@@ -239,6 +242,30 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
     return match || tiers[0];
   };
 
+  // Dynamic page map calculation for each program table
+  const programPageMap = getProgramPageMap(proposal.programs, {
+    density: proposal.tableDensity || 'standard',
+    isOfficialHeader: proposal.headerStyle === 'official',
+  });
+
+  const hasFinalContent = Boolean(
+    (proposal.remarks && proposal.remarks.length > 0) ||
+    (proposal.serviceConditions && proposal.serviceConditions.length > 0) ||
+    (proposal.closingParagraph && proposal.closingParagraph.trim()) ||
+    (proposal.signer?.name && proposal.signer.name.trim()) ||
+    proposal.clientConfirmation?.show ||
+    (proposal.coordinators && proposal.coordinators.length > 0)
+  );
+
+  const totalCalculatedPages = calculateTotalDocumentPages(
+    proposal.programs,
+    hasFinalContent,
+    {
+      density: proposal.tableDensity || 'standard',
+      isOfficialHeader: proposal.headerStyle === 'official',
+    }
+  );
+
   // Helper to recalculate a single program's tiered items when headcount changes
   const recalculateProgramTiers = (prog: ProposalProgram, newHeadcount: number): ProposalProgram => {
     const activeTier = getTierForHeadcount(newHeadcount);
@@ -307,6 +334,26 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
       programs: proposal.programs.filter(p => p.id !== progId),
     });
     setProgramToDeleteId(null);
+  };
+
+  // Reorder / Swap program tables up or down
+  const handleMoveProgram = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1;
+    if (targetIndex < 0 || targetIndex >= proposal.programs.length) return;
+    const newPrograms = [...proposal.programs];
+    const temp = newPrograms[index];
+    newPrograms[index] = newPrograms[targetIndex];
+    newPrograms[targetIndex] = temp;
+
+    // Ensure program at index 0 has pageBreakBefore cleared (since it's on page 1)
+    if (newPrograms[0]) {
+      newPrograms[0] = { ...newPrograms[0], pageBreakBefore: false };
+    }
+
+    onChange({
+      ...proposal,
+      programs: newPrograms,
+    });
   };
 
   // Add custom manual test row to program
@@ -1280,6 +1327,58 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
 
         {!collapsedSections.programs && (
           <div className="p-5 space-y-6">
+            {/* Table Density & A4 Page Layout Status Bar */}
+            <div className="p-3.5 bg-sky-50/70 border border-sky-200 rounded-2xl flex flex-col md:flex-row md:items-center justify-between gap-3 shadow-2xs">
+              <div className="flex items-center gap-2.5">
+                <span className="p-2 bg-sky-600 text-white rounded-xl shadow-2xs">
+                  <FileText className="w-4 h-4" />
+                </span>
+                <div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-xs font-bold text-sky-950">
+                      การจัดหน้ากระดาษ A4:
+                    </span>
+                    <span className="text-xs font-semibold px-2 py-0.5 bg-white text-sky-800 rounded-md border border-sky-200 shadow-2xs">
+                      จัดเป็น {totalCalculatedPages} หน้า A4 (มีหัวกระดาษทุกหน้า)
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-sky-700 mt-0.5">
+                    ทุกหน้า A4 ที่พิมพ์จะมีหัวกระดาษคลินิก วันที่ และเลขที่เอกสารครบถ้วนเสมอ
+                  </p>
+                </div>
+              </div>
+
+              {/* Density selector */}
+              <div className="flex items-center gap-1.5 bg-white border border-sky-200 rounded-xl p-1 shrink-0">
+                <span className="text-[11px] font-bold text-slate-600 pl-1.5 whitespace-nowrap">
+                  ความกระชับตาราง:
+                </span>
+                {(
+                  [
+                    { id: 'standard', label: 'ปกติ' },
+                    { id: 'compact', label: 'กระชับ (แนะนำ 12+ แถว)' },
+                    { id: 'ultra-compact', label: 'กระชับมาก' },
+                  ] as const
+                ).map(opt => {
+                  const isCurrent = (proposal.tableDensity || 'standard') === opt.id;
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      onClick={() => onChange({ ...proposal, tableDensity: opt.id })}
+                      className={`text-xs px-2.5 py-1 rounded-lg font-semibold transition cursor-pointer ${
+                        isCurrent
+                          ? 'bg-sky-600 text-white shadow-2xs'
+                          : 'text-slate-600 hover:bg-slate-100'
+                      }`}
+                    >
+                      {opt.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
             {proposal.programs.map((prog, progIdx) => {
               const activeTier = getTierForHeadcount(prog.defaultHeadcount);
               const programTotal = prog.items.reduce((s, it) => s + (it.totalPrice || 0), 0);
@@ -1293,10 +1392,86 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                   {/* Program Title & Controls Bar */}
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-200">
                     <div className="flex-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <span className="text-xs font-bold bg-slate-800 text-white px-2 py-0.5 rounded">
                           ตารางที่ {progIdx + 1}
                         </span>
+
+                        {/* Reorder Up / Down Buttons */}
+                        {proposal.programs.length > 1 && (
+                          <div className="flex items-center bg-white border border-slate-300 rounded-md shadow-2xs overflow-hidden">
+                            <button
+                              type="button"
+                              disabled={progIdx === 0}
+                              onClick={() => handleMoveProgram(progIdx, 'up')}
+                              className={`p-1 transition ${
+                                progIdx === 0
+                                  ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                                  : 'text-slate-700 hover:text-sky-700 hover:bg-sky-50 cursor-pointer'
+                              }`}
+                              title={
+                                progIdx === 0
+                                  ? 'ตารางแรกสุดแล้ว'
+                                  : `สลับตารางนี้ขึ้นไปเป็นตารางที่ ${progIdx}`
+                              }
+                            >
+                              <ArrowUp className="w-3.5 h-3.5" />
+                            </button>
+                            <div className="w-[1px] h-3.5 bg-slate-200"></div>
+                            <button
+                              type="button"
+                              disabled={progIdx === proposal.programs.length - 1}
+                              onClick={() => handleMoveProgram(progIdx, 'down')}
+                              className={`p-1 transition ${
+                                progIdx === proposal.programs.length - 1
+                                  ? 'text-slate-300 cursor-not-allowed bg-slate-50'
+                                  : 'text-slate-700 hover:text-sky-700 hover:bg-sky-50 cursor-pointer'
+                              }`}
+                              title={
+                                progIdx === proposal.programs.length - 1
+                                  ? 'ตารางสุดท้ายแล้ว'
+                                  : `สลับตารางนี้ลงไปเป็นตารางที่ ${progIdx + 2}`
+                              }
+                            >
+                              <ArrowDown className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        )}
+
+                        <span
+                          className="text-xs font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded border border-sky-300"
+                          title="ตารางนี้จะปรากฏในหน้า A4 ดังกล่าวพร้อมหัวกระดาษ"
+                        >
+                          หน้า {programPageMap[prog.id] || (progIdx === 0 ? 1 : 2)}
+                        </span>
+                        {progIdx > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const updated = proposal.programs.map(p =>
+                                p.id === prog.id ? { ...p, pageBreakBefore: !p.pageBreakBefore } : p
+                              );
+                              onChange({ ...proposal, programs: updated });
+                            }}
+                            className={`text-xs px-2.5 py-0.5 rounded-lg font-semibold border transition cursor-pointer flex items-center gap-1.5 ${
+                              prog.pageBreakBefore
+                                ? 'bg-indigo-600 text-white border-indigo-700 shadow-2xs hover:bg-indigo-700'
+                                : 'bg-slate-100 text-slate-700 border-slate-300 hover:bg-slate-200'
+                            }`}
+                            title={
+                              prog.pageBreakBefore
+                                ? 'ขณะนี้ตั้งค่าให้แยกเป็นหน้าใหม่ (คลิกเพื่อดึงกลับมารวมในหน้า 2)'
+                                : 'ขณะนี้รวมอยู่ในหน้าเดิม (คลิกเพื่อแยกขึ้นหน้า A4 ใหม่พร้อมหัวกระดาษ)'
+                            }
+                          >
+                            <FileText className="w-3.5 h-3.5" />
+                            <span>
+                              {prog.pageBreakBefore
+                                ? '📄 แยกหน้า A4 ใหม่ (มีหัวกระดาษ)'
+                                : '📄 รวมในหน้านี้ (หน้า 2)'}
+                            </span>
+                          </button>
+                        )}
                         <input
                           type="text"
                           value={prog.title}
@@ -1306,7 +1481,7 @@ export const ProposalEditor: React.FC<ProposalEditorProps> = ({
                             );
                             onChange({ ...proposal, programs: updated });
                           }}
-                          className="font-bold text-base text-slate-900 border-b border-dashed border-slate-400 bg-transparent px-1 py-0.5 focus:border-emerald-600 outline-hidden flex-1"
+                          className="font-bold text-base text-slate-900 border-b border-dashed border-slate-400 bg-transparent px-1 py-0.5 focus:border-emerald-600 outline-hidden flex-1 min-w-[200px]"
                         />
                       </div>
                     </div>
