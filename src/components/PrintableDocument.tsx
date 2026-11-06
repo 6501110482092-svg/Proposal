@@ -873,7 +873,18 @@ export const PrintableDocument: React.FC<PrintableDocumentProps> = ({
             {/* Signoff (ขอแสดงความนับถือ) */}
             <div className="w-full flex justify-end mb-8 avoid-break">
               <div className="text-center min-w-[220px] text-[13.5px]">
-                <div className="mb-10 font-normal">ขอแสดงความนับถือ</div>
+                <div className="font-normal mb-1">ขอแสดงความนับถือ</div>
+                {proposal.signer?.showSignature && proposal.signer?.signatureUrl ? (
+                  <div className="h-14 my-1 flex items-center justify-center">
+                    <img
+                      src={proposal.signer.signatureUrl}
+                      alt="ลายเซ็นอิเล็กทรอนิกส์"
+                      className="max-h-14 max-w-[180px] object-contain"
+                    />
+                  </div>
+                ) : (
+                  <div className="h-10"></div>
+                )}
                 <div className="font-normal mb-0.5">({proposal.signer?.name || '...........................................'})</div>
                 <div className="text-[13px] opacity-90">{proposal.signer?.title || 'เจ้าหน้าที่ฝ่ายขาย'}</div>
               </div>

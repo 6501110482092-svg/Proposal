@@ -49,6 +49,7 @@ export const ensureClinicDefaults = (c: Partial<ClinicProfile> | undefined | nul
     defaultSigner: {
       name: c.defaultSigner?.name || (base.defaultSigner ? base.defaultSigner.name : 'นายแพทย์ ประจำศูนย์'),
       title: c.defaultSigner?.title || (base.defaultSigner ? base.defaultSigner.title : 'ผู้อำนวยการฝ่ายบริการองค์กร'),
+      signatureUrl: c.defaultSigner?.signatureUrl || '',
     },
     defaultCoordinators: Array.isArray(c.defaultCoordinators)
       ? c.defaultCoordinators.map(coord => ({
@@ -92,6 +93,7 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
   const [confirmDeleteClinicId, setConfirmDeleteClinicId] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const signatureInputRef = useRef<HTMLInputElement>(null);
 
   // Sync editing clinic whenever modal opens or activeClinicId changes
   useEffect(() => {
@@ -228,6 +230,28 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
     });
     setHasChanges(true);
     setUploadError(null);
+  };
+
+  const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    setUploadError(null);
+    try {
+      const compressedDataUrl = await compressLogoImage(file, 400, 200, 0.9);
+      setEditingClinic(prev => ({
+        ...prev,
+        defaultSigner: {
+          ...prev.defaultSigner,
+          signatureUrl: compressedDataUrl,
+        },
+      }));
+      setHasChanges(true);
+    } catch (err) {
+      console.error('Signature upload error:', err);
+      setUploadError('ไม่สามารถประมวลผลไฟล์ภาพลายเซ็นได้ กรุณาใช้ไฟล์ PNG, JPG หรือ WebP');
+    }
+    e.target.value = '';
   };
 
   return (
@@ -605,8 +629,8 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
                         setEditingClinic({
                           ...editingClinic,
                           defaultSigner: {
+                            ...editingClinic.defaultSigner,
                             name: e.target.value,
-                            title: editingClinic.defaultSigner?.title || '',
                           },
                         });
                         setHasChanges(true);
@@ -623,13 +647,81 @@ export const ClinicProfilesModal: React.FC<ClinicProfilesModalProps> = ({
                         setEditingClinic({
                           ...editingClinic,
                           defaultSigner: {
-                            name: editingClinic.defaultSigner?.name || '',
+                            ...editingClinic.defaultSigner,
                             title: e.target.value,
                           },
                         });
                         setHasChanges(true);
                       }}
                       className="w-full text-sm border border-slate-300 rounded-lg px-3 py-1.5 outline-hidden"
+                    />
+                  </div>
+                </div>
+
+                {/* Default Electronic Signature */}
+                <div className="mt-3 p-3 bg-slate-50 border border-slate-200 rounded-xl">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
+                    <div>
+                      <span className="block text-xs font-bold text-slate-700">
+                        ลายเซ็นอิเล็กทรอนิกส์เริ่มต้น (Default Electronic Signature)
+                      </span>
+                      <span className="text-[11px] text-slate-500">
+                        จะแสดงเหนือชื่อผู้ลงนามในรายงานใบเสนอราคา (แนะนำไฟล์ PNG พื้นหลังโปร่งใส)
+                      </span>
+                    </div>
+                    {editingClinic.defaultSigner?.signatureUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingClinic({
+                            ...editingClinic,
+                            defaultSigner: {
+                              ...editingClinic.defaultSigner,
+                              signatureUrl: '',
+                            },
+                          });
+                          setHasChanges(true);
+                        }}
+                        className="text-[11px] text-red-600 hover:text-red-800 font-semibold flex items-center gap-1 cursor-pointer"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> ลบลายเซ็น
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-3">
+                    {editingClinic.defaultSigner?.signatureUrl ? (
+                      <div className="flex items-center gap-3 p-2 bg-white rounded-lg border border-slate-200">
+                        <div className="h-12 w-32 flex items-center justify-center bg-slate-50 border border-dashed border-slate-300 rounded p-1">
+                          <img
+                            src={editingClinic.defaultSigner.signatureUrl}
+                            alt="ลายเซ็นเริ่มต้น"
+                            className="max-h-full max-w-full object-contain"
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => signatureInputRef.current?.click()}
+                          className="text-xs bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium px-3 py-1.5 rounded-lg border border-slate-300 transition cursor-pointer"
+                        >
+                          เปลี่ยนไฟล์ลายเซ็น
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => signatureInputRef.current?.click()}
+                        className="bg-white hover:bg-slate-50 text-indigo-700 border border-indigo-200 text-xs font-semibold px-3.5 py-2 rounded-xl flex items-center gap-2 shadow-2xs transition cursor-pointer"
+                      >
+                        <Upload className="w-4 h-4 text-indigo-600" /> อัปโหลดรูปลายเซ็นอิเล็กทรอนิกส์ (PNG, JPG)
+                      </button>
+                    )}
+                    <input
+                      ref={signatureInputRef}
+                      type="file"
+                      accept="image/*"
+                      onChange={handleSignatureUpload}
+                      className="hidden"
                     />
                   </div>
                 </div>

@@ -48,6 +48,7 @@ export interface ClinicProfile {
   defaultSigner: {
     name: string;
     title: string;
+    signatureUrl?: string;
   };
   defaultCoordinators: {
     id: string;
@@ -151,6 +152,8 @@ export interface ProposalDocument {
   signer: {
     name: string;
     title: string;
+    showSignature?: boolean;
+    signatureUrl?: string;
   };
   
   // Client confirmation section

@@ -379,7 +379,10 @@ export default function App() {
       remarks: [...targetClinic.defaultRemarks],
       serviceConditions: [...targetClinic.defaultTerms],
       closingParagraph: targetClinic.defaultClosingText,
-      signer: { ...targetClinic.defaultSigner },
+      signer: {
+        ...targetClinic.defaultSigner,
+        showSignature: Boolean(targetClinic.defaultSigner?.signatureUrl),
+      },
       clientConfirmation: {
         show: true,
         title: 'ยืนยันการใช้บริการ',
@@ -511,7 +514,10 @@ export default function App() {
       remarks: [...targetClinic.defaultRemarks],
       serviceConditions: [...targetClinic.defaultTerms],
       closingParagraph: targetClinic.defaultClosingText,
-      signer: { ...targetClinic.defaultSigner },
+      signer: {
+        ...targetClinic.defaultSigner,
+        showSignature: Boolean(targetClinic.defaultSigner?.signatureUrl),
+      },
       clientConfirmation: {
         show: true,
         title: 'ยืนยันการใช้บริการ',
